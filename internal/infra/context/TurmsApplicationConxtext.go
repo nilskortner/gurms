@@ -18,7 +18,7 @@ var activeEnvProfile string
 var buildProperties BuildProperties
 
 var shutdownJobTimeoutMillis int64
-var shutdownHooks
+var shutdownHooks int
 
 func TurmsApplicationContext() {
 
