@@ -36,11 +36,12 @@ var defaultConsoleAppender appender.Appender
 
 var logprocessor processor.LogProcessor
 
+// use sync once?
 func initialize(
 	runWithTests bool,
 	nodeType node.NodeType,
 	nodeId string,
-	properties logging.Loggingproperties) {
+	properties logging.LoggingProperties) {
 	if initialized {
 		return
 	}
@@ -58,4 +59,13 @@ func initialize(
 	serverTypeName = nodeType.GetId()
 	consoleLoggingProperties := properties.GetConsole()
 	fileLoggingProperties := properties.GetFile()
+	if consoleLoggingProperties.IsEnabled() {
+		if runWithTests {
+			consoleAppender = appender.NewSystemConsoleAppender(consoleLoggingProperties.Level())
+		} else {
+			consoleAppender = appender.NewChannelConsoleAppender(consoleLoggingProperties.Level())
+		}
+		defaultConsoleAppender = consoleAppender
+		//DEFAULT_APPENDERS.Add(consoleAppender)
+	}
 }

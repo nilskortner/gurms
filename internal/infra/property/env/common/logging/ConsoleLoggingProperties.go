@@ -13,3 +13,11 @@ func NewConsoleLoggingProperties() *ConsoleLoggingProperties {
 		level:   "INFO",
 	}
 }
+
+func (c *ConsoleLoggingProperties) IsEnabled() bool {
+	return c.enabled
+}
+
+func (c *ConsoleLoggingProperties) Level() model.LogLevel {
+	return c.level
+}
