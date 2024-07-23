@@ -27,3 +27,7 @@ func NewFileLoggingPropertiesDefault() *FileLoggingProperties {
 		maxFileSizeMb: DEFAULT_VALUE_FILE_SIZE_MB,
 	}
 }
+
+func (f *FileLoggingProperties) IsEnabled() bool {
+	return f.enabled
+}

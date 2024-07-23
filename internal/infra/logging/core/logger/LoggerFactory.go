@@ -3,6 +3,7 @@ package logger
 import (
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/logging/core/appender"
+	"gurms/internal/infra/logging/core/appender/file"
 	"gurms/internal/infra/logging/core/layout"
 	"gurms/internal/infra/logging/core/processor"
 	"gurms/internal/infra/property/env/common/logging"
@@ -25,7 +26,7 @@ var loggerlayout layout.GurmsTemplateLayout
 var initialized bool
 
 var ALL_APPENDERS copyonwriteslice.CopyOnWriteSliceAppender
-var DEFAULT_APPENDERS [2]appender.Appender
+var DEFAULT_APPENDERS = make([]appender.Appender, 0, 2)
 var Queue mpscunboundedarrayqueue.MpscUnboundedArrayQueue
 var UNINITIALIZED_LOGGERS linkedlist.LinkedList
 
@@ -60,12 +61,18 @@ func initialize(
 	consoleLoggingProperties := properties.GetConsole()
 	fileLoggingProperties := properties.GetFile()
 	if consoleLoggingProperties.IsEnabled() {
+		var consoleAppender appender.Appender
 		if runWithTests {
 			consoleAppender = appender.NewSystemConsoleAppender(consoleLoggingProperties.Level())
 		} else {
 			consoleAppender = appender.NewChannelConsoleAppender(consoleLoggingProperties.Level())
 		}
 		defaultConsoleAppender = consoleAppender
-		//DEFAULT_APPENDERS.Add(consoleAppender)
+		DEFAULT_APPENDERS = append(DEFAULT_APPENDERS, consoleAppender)
+	}
+	if fileLoggingProperties.IsEnabled() {
+		fileAppender := file.NewRollingFileAppender(
+			fileLoggingProperties.GetLevel(),
+		)
 	}
 }

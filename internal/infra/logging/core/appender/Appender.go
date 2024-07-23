@@ -2,12 +2,16 @@ package appender
 
 import "gurms/internal/infra/logging/core/model"
 
-type Appender struct {
+type BaseAppender struct {
 	level model.LogLevel
 }
 
-func NewAppender(level model.LogLevel) *Appender {
-	return &Appender{
+type Appender interface {
+	Append()
+}
+
+func NewAppender(level model.LogLevel) *BaseAppender {
+	return &BaseAppender{
 		level: level,
 	}
 }

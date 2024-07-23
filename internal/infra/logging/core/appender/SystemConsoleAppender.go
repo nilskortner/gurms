@@ -5,13 +5,16 @@ import (
 )
 
 type SystemConsoleAppender struct {
-	appender Appender
+	appender BaseAppender
 }
 
 func NewSystemConsoleAppender(level model.LogLevel) *SystemConsoleAppender {
 	return &SystemConsoleAppender{
 		appender: *NewAppender(level),
 	}
+}
+
+func (s *SystemConsoleAppender) Append() {
 }
 
 // func append(record model.LogRecord) int {
