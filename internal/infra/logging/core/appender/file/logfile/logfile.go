@@ -1,4 +1,4 @@
-package file
+package logfile
 
 import "time"
 
@@ -16,4 +16,8 @@ func NewLogFile(path string, archivePath string, dateTime time.Time, index int64
 		dateTime:    dateTime,
 		index:       index,
 	}
+}
+
+func (l *LogFile) GetIndex() int64 {
+	return l.index
 }

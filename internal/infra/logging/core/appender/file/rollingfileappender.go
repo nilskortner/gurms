@@ -3,6 +3,7 @@ package file
 import (
 	"fmt"
 	"gurms/internal/infra/logging/core/appender"
+	"gurms/internal/infra/logging/core/appender/file/logfile"
 	"gurms/internal/infra/logging/core/compression"
 	"gurms/internal/infra/logging/core/model"
 	"gurms/internal/infra/time"
@@ -39,7 +40,7 @@ type RollingFileAppender struct {
 	maxFilesBytes         int64
 	minUsableSpaceBytes   int64
 	files                 dequeue.Dequeue
-	currentFile           LogFile
+	currentFile           logfile.LogFile
 	nextFileBytes         int64
 	nextIndex             int64
 	nextDay               int64
