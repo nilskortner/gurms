@@ -17,8 +17,8 @@ import (
 	"strings"
 )
 
-const FIELD_DELIMITER = '_'
-const FILE_MIDDLE = "yyyyMMdd"
+const FIELD_DELIMITER string = "_"
+const FILE_MIDDLE = "20060102"
 
 const ARCHIVE_FILE_SUFFIX = ".gz"
 
@@ -97,7 +97,12 @@ func NewRollingFileAppender(
 	if err != nil {
 		fmt.Println("Failed to create the directory ("+fileDirectory+")for log files", err)
 	}
-	files := Visit(fileDirectory, filePrefix)
+	fileDateTimeFormatter := timesupport.NewDateTimeFormatter(FILE_MIDDLE, time.ZONE_ID)
+	var files *dequeue.Dequeue
+	files, err = Visit(fileDirectory, filePrefix, fileSuffix, FILE_MIDDLE, fileDateTimeFormatter, maxFiles)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	//logFile := files.peekLast()
 
@@ -110,7 +115,7 @@ func NewRollingFileAppender(
 		maxFiles:              maxFiles,
 		maxFilesBytes:         maxFileBytes,
 		minUsableSpaceBytes:   minUsableSpaceBytes,
-		fileDateTimeFormatter: timesupport.NewDateTimeFormatter(FILE_MIDDLE, time.ZONE_ID),
+		fileDateTimeFormatter: fileDateTimeFormatter,
 		nextDay:               math.MinInt64,
 		enableCompression:     enableCompression,
 		gzipOutputStream:      gzipOutputStream,

@@ -9,8 +9,8 @@ type LogFile struct {
 	index       int64
 }
 
-func NewLogFile(path string, archivePath string, dateTime time.Time, index int64) *LogFile {
-	return &LogFile{
+func NewLogFile(path string, archivePath string, dateTime time.Time, index int64) LogFile {
+	return LogFile{
 		path:        path,
 		archivePath: archivePath,
 		dateTime:    dateTime,
@@ -18,6 +18,14 @@ func NewLogFile(path string, archivePath string, dateTime time.Time, index int64
 	}
 }
 
-func (l *LogFile) GetIndex() int64 {
+func (l LogFile) GetIndex() int64 {
 	return l.index
+}
+
+func (l LogFile) GetPath() string {
+	return l.path
+}
+
+func (l LogFile) GetArchivePath() string {
+	return l.archivePath
 }
