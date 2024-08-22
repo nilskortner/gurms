@@ -29,3 +29,7 @@ func (l LogFile) GetPath() string {
 func (l LogFile) GetArchivePath() string {
 	return l.archivePath
 }
+
+func (l LogFile) GetTime() time.Time {
+	return l.dateTime
+}

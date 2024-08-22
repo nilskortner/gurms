@@ -8,7 +8,6 @@ import (
 	"gurms/internal/supportpkgs/datastructures/treeset"
 	"gurms/internal/supportpkgs/filesupport"
 	"gurms/internal/supportpkgs/mathsupport"
-	"gurms/internal/supportpkgs/timesupport"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -17,29 +16,26 @@ import (
 )
 
 type LogDirectoryVisitor struct {
-	filePrefix            string
-	fileSuffix            string
-	fileMiddle            string
-	fileDateTimeFormatter *timesupport.DateTimeFormatter
-	maxFilesToKeep        int
-	deleteExceedFiles     bool
-	files                 *treeset.Tree
+	filePrefix        string
+	fileSuffix        string
+	fileMiddle        string
+	maxFilesToKeep    int
+	deleteExceedFiles bool
+	files             *treeset.Tree
 }
 
 func NewLogDirectoryVisitor(
 	filePrefix string,
 	fileSuffix string,
 	fileMiddle string,
-	fileDateTimeFormatter *timesupport.DateTimeFormatter,
 	maxFiles int) *LogDirectoryVisitor {
 	return &LogDirectoryVisitor{
-		filePrefix:            filePrefix,
-		fileSuffix:            fileSuffix,
-		fileMiddle:            fileMiddle,
-		fileDateTimeFormatter: fileDateTimeFormatter,
-		maxFilesToKeep:        mathsupport.Max(1, maxFiles),
-		deleteExceedFiles:     maxFiles > 0,
-		files:                 treeset.New(treeset.LogComparator),
+		filePrefix:        filePrefix,
+		fileSuffix:        fileSuffix,
+		fileMiddle:        fileMiddle,
+		maxFilesToKeep:    mathsupport.Max(1, maxFiles),
+		deleteExceedFiles: maxFiles > 0,
+		files:             treeset.New(treeset.LogComparator),
 	}
 }
 
@@ -110,9 +106,8 @@ func Visit(
 	prefix string,
 	suffix string,
 	middle string,
-	template *timesupport.DateTimeFormatter,
 	maxFiles int) (*dequeue.Dequeue, error) {
-	visitor := NewLogDirectoryVisitor(prefix, suffix, middle, template, maxFiles)
+	visitor := NewLogDirectoryVisitor(prefix, suffix, middle, maxFiles)
 	maxDepth := 1
 	err := filepath.WalkDir(directory, func(path string, d os.DirEntry, err error) error {
 		if err != nil {

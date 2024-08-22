@@ -43,3 +43,7 @@ func PadStart(str string, minLength int, padRune byte) string {
 	}
 	return string(dest)
 }
+
+func IsBlank(str string) bool {
+	return len(str) == 0
+}
