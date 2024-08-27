@@ -8,6 +8,7 @@ import (
 	"gurms/internal/infra/logging/core/processor"
 	"gurms/internal/infra/property/env/common/logging"
 	"gurms/internal/infra/system"
+	"strings"
 
 	"gurms/internal/supportpkgs/datastructures/copyonwriteslice"
 	"gurms/internal/supportpkgs/datastructures/linkedlist"
@@ -21,13 +22,13 @@ const (
 	SERVER_TYPE_UNKNOWN                 = "unknown"
 )
 
-var loggerlayout layout.GurmsTemplateLayout
+var loggerlayout *layout.GurmsTemplateLayout
 
 var initialized bool
 
 var ALL_APPENDERS copyonwriteslice.CopyOnWriteSliceAppender
 var DEFAULT_APPENDERS = make([]appender.Appender, 0, 2)
-var Queue mpscunboundedarrayqueue.MpscUnboundedArrayQueue
+var Queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue
 var UNINITIALIZED_LOGGERS linkedlist.LinkedList
 
 var homeDir string
@@ -73,6 +74,28 @@ func initialize(
 	if fileLoggingProperties.IsEnabled() {
 		fileAppender := file.NewRollingFileAppender(
 			fileLoggingProperties.GetLevel(),
+			getFilePath(fileLoggingProperties.GetFilePath()),
+			fileLoggingProperties.GetMaxFiles(),
+			int64(fileLoggingProperties.GetMaxFilesSizeMb()),
+			fileLoggingProperties.GetCompression(),
 		)
+		DEFAULT_APPENDERS[0] = fileAppender
 	}
+
+	loggerlayout = layout.NewGurmsTemplateLayout(nodeType, nodeId)
+	initialized = true
+
+	InternalLogger.init()
+
+	processor := processor.NewLogProcessor(Queue)
+	processor.Start()
+}
+
+func getFilePath(path string) string {
+	if path == "" {
+		return "."
+	}
+	path = strings.Replace(path, "@HOME", homeDir, -1)
+	path = strings.Replace(path, "@SERVICE_TYPE_NAME", serverTypeName, -1)
+	return path
 }

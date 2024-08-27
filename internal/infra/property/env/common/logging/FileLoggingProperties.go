@@ -16,6 +16,7 @@ type FileLoggingProperties struct {
 	filePath      string
 	maxFiles      int
 	maxFileSizeMb int
+	compression   FileLoggingCompressionProperties
 }
 
 func NewFileLoggingPropertiesDefault() *FileLoggingProperties {
@@ -25,9 +26,30 @@ func NewFileLoggingPropertiesDefault() *FileLoggingProperties {
 		filePath:      DEFAULT_VALUE_FILE_PATH,
 		maxFiles:      DEFAULT_VALUE_MAX_FILES,
 		maxFileSizeMb: DEFAULT_VALUE_FILE_SIZE_MB,
+		compression:   NewFileLoggingCompressionProperties(),
 	}
 }
 
 func (f *FileLoggingProperties) IsEnabled() bool {
 	return f.enabled
+}
+
+func (f *FileLoggingProperties) GetLevel() model.LogLevel {
+	return f.level
+}
+
+func (f *FileLoggingProperties) GetFilePath() string {
+	return f.filePath
+}
+
+func (f *FileLoggingProperties) GetMaxFiles() int {
+	return f.maxFiles
+}
+
+func (f *FileLoggingProperties) GetMaxFilesSizeMb() int {
+	return f.maxFileSizeMb
+}
+
+func (f *FileLoggingProperties) GetCompression() bool {
+	return f.compression.IsEnabled()
 }

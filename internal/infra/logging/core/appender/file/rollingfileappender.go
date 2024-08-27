@@ -132,6 +132,10 @@ func NewRollingFileAppender(
 	return rfa
 }
 
+func (r *RollingFileAppender) Append() {
+
+}
+
 func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 	now := time.Now().In(timezone.ZONE_ID)
 	next := now.Add(24 * time.Hour)
