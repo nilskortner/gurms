@@ -5,6 +5,7 @@ import (
 	"gurms/internal/infra/logging/core/appender"
 	"gurms/internal/infra/logging/core/appender/file"
 	"gurms/internal/infra/logging/core/layout"
+	"gurms/internal/infra/logging/core/model"
 	"gurms/internal/infra/logging/core/processor"
 	"gurms/internal/infra/property/env/common/logging"
 	"gurms/internal/infra/system"
@@ -28,7 +29,7 @@ var initialized bool
 
 var ALL_APPENDERS copyonwriteslice.CopyOnWriteSliceAppender
 var DEFAULT_APPENDERS = make([]appender.Appender, 0, 2)
-var Queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue
+var Queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[model.LogRecord]
 var UNINITIALIZED_LOGGERS linkedlist.LinkedList
 
 var homeDir string

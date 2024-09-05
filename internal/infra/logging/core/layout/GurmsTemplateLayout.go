@@ -4,7 +4,7 @@ import (
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/lang"
 	"gurms/internal/infra/logging/core/model"
-	"gurms/internal/supportpkgs/math"
+	"gurms/internal/supportpkgs/mathsupport"
 	"strings"
 )
 
@@ -26,7 +26,7 @@ func init() {
 	LEVELS = make([][]byte, levelCount)
 	maxLength := 0
 	for _, level := range levels {
-		maxLength = math.Max(len(level), maxLength)
+		maxLength = mathsupport.Max(len(level), maxLength)
 	}
 	for i := 0; i < levelCount; i++ {
 		level := lang.PadStart(levels[i].String(), maxLength, ' ')

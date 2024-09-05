@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"gurms/internal/infra/logging/core/model"
 	"gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	"sync"
 	"sync/atomic"
@@ -10,10 +11,10 @@ type LogProcessor struct {
 	active bool
 	wait   *sync.WaitGroup
 	count  int32
-	queue  *mpscunboundedarrayqueue.MpscUnboundedArrayQueue
+	queue  *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[model.LogRecord]
 }
 
-func NewLogProcessor(queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue) *LogProcessor {
+func NewLogProcessor(queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[model.LogRecord]) *LogProcessor {
 	return &LogProcessor{
 		active: true,
 		wait:   &sync.WaitGroup{},
