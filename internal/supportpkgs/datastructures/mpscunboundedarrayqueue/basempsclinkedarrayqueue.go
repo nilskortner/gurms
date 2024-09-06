@@ -45,9 +45,8 @@ func getBufferConsumedValue[T comparable]() *T {
 }
 
 type Buffer[T comparable] struct {
-	data     []*atomic.Pointer[T]
-	next     *Buffer[T]
-	capacity int64
+	data []*atomic.Pointer[T]
+	next *Buffer[T]
 }
 
 type BaseMpscLinkedArrayQueueProducerFields struct {
@@ -110,6 +109,7 @@ type BaseMpscLinkedArrayQueue[T comparable] struct {
 	*BaseMpscLinkedArrayQueueColdProducerFields[T]
 	Buffer          *Buffer[T]
 	MovingBuffer    *Buffer[T]
+	Capacity        int64
 	JUMP            *T
 	BUFFER_CONSUMED *T
 }
@@ -126,14 +126,15 @@ func NewBaseMpscLinkedArrayQueue[T comparable](initialCapacity int) *BaseMpscLin
 
 	mask := int64(p2capacity - 1)
 
-	capacity := mask + 2
+	capacity := int64(p2capacity + 1)
 
-	buffer := make([]*atomic.Pointer[T], p2capacity+1)
+	buffer := make([]*atomic.Pointer[T], capacity)
 
 	bmlaq := &BaseMpscLinkedArrayQueue[T]{
 		JUMP:                                   getJumpValue[T](),
 		BUFFER_CONSUMED:                        getBufferConsumedValue[T](),
-		Buffer:                                 &Buffer[T]{data: buffer, next: Movingbuffer, capacity: capacity},
+		Capacity:                               capacity,
+		Buffer:                                 &Buffer[T]{data: buffer, next: Movingbuffer},
 		MovingBuffer:                           Movingbuffer,
 		BaseMpscLinkedArrayQueueProducerFields: &BaseMpscLinkedArrayQueueProducerFields{},
 		BaseMpscLinkedArrayQueueConsumerFields: &BaseMpscLinkedArrayQueueConsumerFields[T]{
@@ -208,7 +209,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) RelaxedPoll() (T, bool) {
 	}
 	if e == b.JUMP {
 		soRefElement[T](buffer, offset, nil)
-		nextBuffer := b.nextBuffer(buffer)
+		nextBuffer := b.nextBuffer()
 		return *b.newBufferPoll(nextBuffer, cIndex), true
 	}
 	soRefElement(buffer, offset, nil)
@@ -242,11 +243,11 @@ func (b *BaseMpscLinkedArrayQueue[T]) offerSlowPath(mask, pIndex, producerLimit 
 	}
 }
 
-func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer *atomic.Pointer[T], pIndex int64, p *T, s.get) {
-	if (p != nil && s != nil) || (e == nil || s != nil) {
+func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer []*atomic.Pointer[T], pIndex int64, p *T) {
+	if p == nil {
 		panic("no clear value defined in func resize()")
 	}
-	newBufferLength = getNextBufferSize(oldBuffer)
+	newBufferLength := b.Capacity
 
 	//
 	// Risk of Running out of Memory
@@ -254,16 +255,39 @@ func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer *atomic.Po
 	newBuffer := make([]*atomic.Pointer[T], newBufferLength)
 
 	b.producerBuffer = newBuffer
-	newMask = (newBufferLength - 2) << 1
+	newMask := (newBufferLength - 2) << 1
 	b.producerMask = newMask
+
+	offsetInOld := pIndex & oldMask
+	offsetInNew := pIndex & newMask
+
+	soRefElement(newBuffer, offsetInNew, p)
+	b.MovingBuffer.data = newBuffer
+	b.MovingBuffer.next = &Buffer[T]{}
+
+	// ASSERT code
+	cIndex := b.lvConsumerIndex()
+	availableInQueue := availableInQueue(pIndex, cIndex)
+	util.CheckPositive(availableInQueue, "availableInQueue")
+
+	// Invalidate racing CASs
+	// We mever set the limit beyond the bounds of a buffer
+	b.soProducerLimit(pIndex + mathsupport.MinInt64(newMask, availableInQueue))
+
+	// make resize visible to the other producers
+	b.soProducerIndex(pIndex + 2)
+
+	// INDEX visible before ELEMENT, consistent with consumer expectation
+
+	// make resize visible to consumer
+	soRefElement(oldBuffer, offsetInOld, b.JUMP)
 
 }
 
-func (b *BaseMpscLinkedArrayQueue[T]) nextBuffer(buffer []*atomic.Pointer[T]) []*atomic.Pointer[T] {
+func (b *BaseMpscLinkedArrayQueue[T]) nextBuffer() []*atomic.Pointer[T] {
 	b.Buffer = b.Buffer.next
 	var nextBuffer []*atomic.Pointer[T] = b.Buffer.data
 
-	b.soConsumerIndex(0)
 	b.consumerBuffer = nextBuffer
 	b.consumerMask = int64(len(nextBuffer)-2) << 1
 	return nextBuffer
