@@ -24,3 +24,5 @@ func NewLogRecord(logger *log.Logger, level LogLevel, timestamp int64, data byte
 func (l *LogRecord) Level() LogLevel {
 	return l.level
 }
+
+// func equals

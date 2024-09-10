@@ -21,7 +21,9 @@ func getJumpValue[T comparable]() *T {
 
 	switch any(zeroValue).(type) {
 	case string:
-		return any("@__JUMP__").(*T)
+		s := "@__JUMP__"
+		p := &s
+		return any(p).(*T)
 	case model.LogRecord:
 		record := model.NewLogRecord(nil, model.INFO, -100, bytes.Buffer{})
 		return any(record).(*T)
@@ -35,7 +37,9 @@ func getBufferConsumedValue[T comparable]() *T {
 
 	switch any(zeroValue).(type) {
 	case string:
-		return any("@__CONSUMED__").(*T)
+		s := "@__CONSUMED__"
+		p := &s
+		return any(p).(*T)
 	case model.LogRecord:
 		record := model.NewLogRecord(nil, model.INFO, -50, bytes.Buffer{})
 		return any(record).(*T)
@@ -59,6 +63,10 @@ func (pf *BaseMpscLinkedArrayQueueProducerFields) lvProducerIndex() int64 {
 	return (&pf.producerIndex).Load()
 }
 
+func (pf *BaseMpscLinkedArrayQueueProducerFields) LvProducerIndex() int64 {
+	return (&pf.producerIndex).Load()
+}
+
 func (pf *BaseMpscLinkedArrayQueueProducerFields) soProducerIndex(newValue int64) {
 	(&pf.producerIndex).Store(newValue)
 }
@@ -75,6 +83,10 @@ type BaseMpscLinkedArrayQueueConsumerFields[T comparable] struct {
 	_              [8]uint64
 }
 
+func (cf *BaseMpscLinkedArrayQueueConsumerFields[T]) GetCBuffer() []*atomic.Pointer[T] {
+	return cf.consumerBuffer
+}
+
 func (cf *BaseMpscLinkedArrayQueueConsumerFields[T]) lvConsumerIndex() int64 {
 	return (&cf.consumerIndex).Load()
 }
@@ -89,6 +101,14 @@ type BaseMpscLinkedArrayQueueColdProducerFields[T comparable] struct {
 	producerMask   int64
 	producerBuffer []*atomic.Pointer[T]
 	_              [8]uint64
+}
+
+func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) GetMask() int64 {
+	return cpf.producerMask
+}
+
+func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) GetBuffer() []*atomic.Pointer[T] {
+	return cpf.producerBuffer
 }
 
 func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) lvProducerLimit() int64 {
@@ -255,15 +275,19 @@ func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer []*atomic.
 	newBuffer := make([]*atomic.Pointer[T], newBufferLength)
 
 	b.producerBuffer = newBuffer
-	newMask := (newBufferLength - 2) << 1
+	newMask := (newBufferLength - 2)
 	b.producerMask = newMask
 
-	offsetInOld := pIndex & oldMask
-	offsetInNew := pIndex & newMask
+	offsetInOld := (pIndex - 2) & oldMask
+	offsetReplace := pIndex & oldMask
+	offsetInNew := (pIndex + 2) & newMask
 
 	soRefElement(newBuffer, offsetInNew, p)
 	b.MovingBuffer.data = newBuffer
 	b.MovingBuffer.next = &Buffer[T]{}
+
+	c := lvRefElement(oldBuffer, offsetInOld)
+	soRefElement(newBuffer, offsetReplace, c)
 
 	// ASSERT code
 	cIndex := b.lvConsumerIndex()
@@ -275,7 +299,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer []*atomic.
 	b.soProducerLimit(pIndex + mathsupport.MinInt64(newMask, availableInQueue))
 
 	// make resize visible to the other producers
-	b.soProducerIndex(pIndex + 2)
+	b.soProducerIndex(pIndex + 4)
 
 	// INDEX visible before ELEMENT, consistent with consumer expectation
 
@@ -289,7 +313,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) nextBuffer() []*atomic.Pointer[T] {
 	var nextBuffer []*atomic.Pointer[T] = b.Buffer.data
 
 	b.consumerBuffer = nextBuffer
-	b.consumerMask = int64(len(nextBuffer)-2) << 1
+	b.consumerMask = int64(len(nextBuffer) - 2)
 	return nextBuffer
 }
 
@@ -309,5 +333,8 @@ func lvRefElement[T comparable](buffer []*atomic.Pointer[T], index int64) *T {
 }
 
 func soRefElement[T comparable](buffer []*atomic.Pointer[T], index int64, value *T) {
+	if buffer[index] == nil {
+		buffer[index] = &atomic.Pointer[T]{}
+	}
 	buffer[index].Store(value)
 }
