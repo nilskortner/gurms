@@ -63,7 +63,7 @@ func (pf *BaseMpscLinkedArrayQueueProducerFields) lvProducerIndex() int64 {
 	return (&pf.producerIndex).Load()
 }
 
-func (pf *BaseMpscLinkedArrayQueueProducerFields) LvProducerIndex() int64 {
+func (pf *BaseMpscLinkedArrayQueueProducerFields) TestingLvProducerIndex() int64 {
 	return (&pf.producerIndex).Load()
 }
 
@@ -88,6 +88,10 @@ func (cf *BaseMpscLinkedArrayQueueConsumerFields[T]) GetCBuffer() []*atomic.Poin
 }
 
 func (cf *BaseMpscLinkedArrayQueueConsumerFields[T]) lvConsumerIndex() int64 {
+	return (&cf.consumerIndex).Load()
+}
+
+func (cf *BaseMpscLinkedArrayQueueConsumerFields[T]) TestingLvConsumerIndex() int64 {
 	return (&cf.consumerIndex).Load()
 }
 
@@ -228,7 +232,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) RelaxedPoll() (T, bool) {
 		return zeroValue, false
 	}
 	if e == b.JUMP {
-		soRefElement[T](buffer, offset, nil)
+		soRefElement[T](buffer, offset, b.BUFFER_CONSUMED)
 		nextBuffer := b.nextBuffer()
 		return *b.newBufferPoll(nextBuffer, cIndex), true
 	}
@@ -333,6 +337,10 @@ func lvRefElement[T comparable](buffer []*atomic.Pointer[T], index int64) *T {
 }
 
 func soRefElement[T comparable](buffer []*atomic.Pointer[T], index int64, value *T) {
+	if value == nil {
+		buffer[index] = nil
+		return
+	}
 	if buffer[index] == nil {
 		buffer[index] = &atomic.Pointer[T]{}
 	}
