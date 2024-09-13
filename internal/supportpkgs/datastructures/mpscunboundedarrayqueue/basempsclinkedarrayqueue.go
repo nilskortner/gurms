@@ -115,6 +115,10 @@ func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) GetBuffer() []*atomic.
 	return cpf.producerBuffer
 }
 
+func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) TestingLvProducerLimit() int64 {
+	return (&cpf.producerLimit).Load()
+}
+
 func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) lvProducerLimit() int64 {
 	return (&cpf.producerLimit).Load()
 }
@@ -131,8 +135,8 @@ type BaseMpscLinkedArrayQueue[T comparable] struct {
 	*BaseMpscLinkedArrayQueueProducerFields
 	*BaseMpscLinkedArrayQueueConsumerFields[T]
 	*BaseMpscLinkedArrayQueueColdProducerFields[T]
-	Buffer          *Buffer[T]
-	MovingBuffer    *Buffer[T]
+	Head            *Buffer[T]
+	Tail            *Buffer[T]
 	Capacity        int64
 	JUMP            *T
 	BUFFER_CONSUMED *T
@@ -144,8 +148,6 @@ func NewBaseMpscLinkedArrayQueue[T comparable](initialCapacity int) *BaseMpscLin
 		fmt.Println(err)
 	}
 
-	Movingbuffer := &Buffer[T]{}
-
 	p2capacity := mathsupport.RoundToPowerOfTwo(initialCapacity)
 
 	mask := int64(p2capacity - 1)
@@ -154,12 +156,14 @@ func NewBaseMpscLinkedArrayQueue[T comparable](initialCapacity int) *BaseMpscLin
 
 	buffer := make([]*atomic.Pointer[T], capacity)
 
+	firstBuffer := &Buffer[T]{data: buffer}
+
 	bmlaq := &BaseMpscLinkedArrayQueue[T]{
 		JUMP:                                   getJumpValue[T](),
 		BUFFER_CONSUMED:                        getBufferConsumedValue[T](),
 		Capacity:                               capacity,
-		Buffer:                                 &Buffer[T]{data: buffer, next: Movingbuffer},
-		MovingBuffer:                           Movingbuffer,
+		Head:                                   firstBuffer,
+		Tail:                                   firstBuffer,
 		BaseMpscLinkedArrayQueueProducerFields: &BaseMpscLinkedArrayQueueProducerFields{},
 		BaseMpscLinkedArrayQueueConsumerFields: &BaseMpscLinkedArrayQueueConsumerFields[T]{
 			consumerMask:   mask,
@@ -174,6 +178,22 @@ func NewBaseMpscLinkedArrayQueue[T comparable](initialCapacity int) *BaseMpscLin
 	bmlaq.BaseMpscLinkedArrayQueueColdProducerFields.soProducerLimit(mask)
 
 	return bmlaq
+}
+
+func (b *BaseMpscLinkedArrayQueue[T]) TestingGetMovingBuffer() *Buffer[T] {
+	return b.Head
+}
+
+func (b *BaseMpscLinkedArrayQueue[T]) TestingGetMovingBufferData(buf *Buffer[T]) []*atomic.Pointer[T] {
+	return buf.data
+}
+
+func (b *BaseMpscLinkedArrayQueue[T]) TestingGetMultiMovingBufferData() ([]*atomic.Pointer[T], []*atomic.Pointer[T], []*atomic.Pointer[T], []*atomic.Pointer[T], []*atomic.Pointer[T]) {
+	return b.Head.data, b.Head.next.data, b.Head.next.next.data, b.Head.next.next.next.data, b.Head.next.next.next.next.data
+}
+
+func (b *BaseMpscLinkedArrayQueue[T]) TestingGetConsumerMask() int64 {
+	return b.consumerMask
 }
 
 func (b *BaseMpscLinkedArrayQueue[T]) Offer(e T) bool {
@@ -204,7 +224,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) Offer(e T) bool {
 			case QUEUE_FULL:
 				return false
 			case QUEUE_RESIZE:
-				b.resize(mask, buffer, pIndex, p)
+				b.resize(buffer, pIndex, p)
 				return true
 			}
 		}
@@ -229,12 +249,12 @@ func (b *BaseMpscLinkedArrayQueue[T]) RelaxedPoll() (T, bool) {
 	offset := cIndex & mask
 	e := lvRefElement[T](buffer, offset)
 	if e == nil {
+		if buffer[1] != nil && *lvRefElement[T](buffer, 1) == *b.JUMP {
+			soRefElement[T](buffer, offset, b.BUFFER_CONSUMED)
+			nextBuffer := b.nextBuffer()
+			return *b.newBufferPoll(nextBuffer, cIndex), true
+		}
 		return zeroValue, false
-	}
-	if e == b.JUMP {
-		soRefElement[T](buffer, offset, b.BUFFER_CONSUMED)
-		nextBuffer := b.nextBuffer()
-		return *b.newBufferPoll(nextBuffer, cIndex), true
 	}
 	soRefElement(buffer, offset, nil)
 	b.soConsumerIndex(cIndex + 2)
@@ -267,10 +287,14 @@ func (b *BaseMpscLinkedArrayQueue[T]) offerSlowPath(mask, pIndex, producerLimit 
 	}
 }
 
-func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer []*atomic.Pointer[T], pIndex int64, p *T) {
+func (b *BaseMpscLinkedArrayQueue[T]) resize(oldBuffer []*atomic.Pointer[T], pIndex int64, p *T) {
 	if p == nil {
 		panic("no clear value defined in func resize()")
 	}
+	// make new JUMP Value Pointer
+	jumpVal := *b.JUMP
+	jump := &jumpVal
+
 	newBufferLength := b.Capacity
 
 	//
@@ -282,16 +306,11 @@ func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer []*atomic.
 	newMask := (newBufferLength - 2)
 	b.producerMask = newMask
 
-	offsetInOld := (pIndex - 2) & oldMask
-	offsetReplace := pIndex & oldMask
-	offsetInNew := (pIndex + 2) & newMask
+	var offsetInOld int64 = 1
+	offsetInNew := pIndex & newMask
 
 	soRefElement(newBuffer, offsetInNew, p)
-	b.MovingBuffer.data = newBuffer
-	b.MovingBuffer.next = &Buffer[T]{}
-
-	c := lvRefElement(oldBuffer, offsetInOld)
-	soRefElement(newBuffer, offsetReplace, c)
+	b.appendNext(newBuffer)
 
 	// ASSERT code
 	cIndex := b.lvConsumerIndex()
@@ -302,19 +321,19 @@ func (b *BaseMpscLinkedArrayQueue[T]) resize(oldMask int64, oldBuffer []*atomic.
 	// We mever set the limit beyond the bounds of a buffer
 	b.soProducerLimit(pIndex + mathsupport.MinInt64(newMask, availableInQueue))
 
-	// make resize visible to the other producers
-	b.soProducerIndex(pIndex + 4)
-
 	// INDEX visible before ELEMENT, consistent with consumer expectation
 
 	// make resize visible to consumer
-	soRefElement(oldBuffer, offsetInOld, b.JUMP)
+	soRefElement(oldBuffer, offsetInOld, jump)
+
+	// make resize visible to the other producers
+	b.soProducerIndex(pIndex + 2)
 
 }
 
 func (b *BaseMpscLinkedArrayQueue[T]) nextBuffer() []*atomic.Pointer[T] {
-	b.Buffer = b.Buffer.next
-	var nextBuffer []*atomic.Pointer[T] = b.Buffer.data
+	b.Head = b.Head.next
+	var nextBuffer []*atomic.Pointer[T] = b.Head.data
 
 	b.consumerBuffer = nextBuffer
 	b.consumerMask = int64(len(nextBuffer) - 2)
@@ -332,7 +351,15 @@ func (b *BaseMpscLinkedArrayQueue[T]) newBufferPoll(nextBuffer []*atomic.Pointer
 	return n
 }
 
+func (b *BaseMpscLinkedArrayQueue[T]) appendNext(nextBuffer []*atomic.Pointer[T]) {
+	b.Tail.next = (&Buffer[T]{data: nextBuffer})
+	b.Tail = b.Tail.next
+}
+
 func lvRefElement[T comparable](buffer []*atomic.Pointer[T], index int64) *T {
+	if buffer[index] == nil {
+		return nil
+	}
 	return buffer[index].Load()
 }
 
