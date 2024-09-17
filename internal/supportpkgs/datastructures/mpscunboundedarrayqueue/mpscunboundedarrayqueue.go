@@ -4,13 +4,13 @@ import (
 	"math"
 )
 
-type MpscUnboundedArrayQueue[T comparable] struct {
-	bmlaq *BaseMpscLinkedArrayQueue[T]
+type MpscUnboundedArrayQueue[T any] struct {
+	*BaseMpscLinkedArrayQueue[T]
 }
 
-func NewMpscUnboundedQueue[T comparable](chunkSize int) *MpscUnboundedArrayQueue[T] {
+func NewMpscUnboundedQueue[T any](chunkSize int) *MpscUnboundedArrayQueue[T] {
 	return &MpscUnboundedArrayQueue[T]{
-		bmlaq: NewBaseMpscLinkedArrayQueue[T](chunkSize),
+		BaseMpscLinkedArrayQueue: NewBaseMpscLinkedArrayQueue[T](chunkSize),
 	}
 }
 

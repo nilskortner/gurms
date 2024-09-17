@@ -1,9 +1,7 @@
 package mpscunboundedarrayqueue
 
 import (
-	"bytes"
 	"fmt"
-	"gurms/internal/infra/logging/core/model"
 	"gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue/util"
 	"gurms/internal/supportpkgs/mathsupport"
 	"sync/atomic"
@@ -14,41 +12,7 @@ var RETRY int = 1
 var QUEUE_FULL int = 2
 var QUEUE_RESIZE int = 3
 
-// Add Custom JumpValue for Type of Queue
-
-func getJumpValue[T comparable]() *T {
-	var zeroValue T
-
-	switch any(zeroValue).(type) {
-	case string:
-		s := "@__JUMP__"
-		p := &s
-		return any(p).(*T)
-	case model.LogRecord:
-		record := model.NewLogRecord(nil, model.INFO, -100, bytes.Buffer{})
-		return any(record).(*T)
-	default:
-		return &zeroValue
-	}
-}
-
-func getBufferConsumedValue[T comparable]() *T {
-	var zeroValue T
-
-	switch any(zeroValue).(type) {
-	case string:
-		s := "@__CONSUMED__"
-		p := &s
-		return any(p).(*T)
-	case model.LogRecord:
-		record := model.NewLogRecord(nil, model.INFO, -50, bytes.Buffer{})
-		return any(record).(*T)
-	default:
-		return &zeroValue
-	}
-}
-
-type Buffer[T comparable] struct {
+type Buffer[T any] struct {
 	data []*atomic.Pointer[T]
 	next *Buffer[T]
 }
@@ -75,7 +39,7 @@ func (pf *BaseMpscLinkedArrayQueueProducerFields) casProducerIndex(expect, newVa
 	return (&pf.producerIndex).CompareAndSwap(expect, newValue)
 }
 
-type BaseMpscLinkedArrayQueueConsumerFields[T comparable] struct {
+type BaseMpscLinkedArrayQueueConsumerFields[T any] struct {
 	_              [8]uint64
 	consumerIndex  atomic.Int64
 	consumerMask   int64
@@ -99,7 +63,7 @@ func (cf *BaseMpscLinkedArrayQueueConsumerFields[T]) soConsumerIndex(newValue in
 	(&cf.consumerIndex).Store(newValue)
 }
 
-type BaseMpscLinkedArrayQueueColdProducerFields[T comparable] struct {
+type BaseMpscLinkedArrayQueueColdProducerFields[T any] struct {
 	_              [8]uint64
 	producerLimit  atomic.Int64
 	producerMask   int64
@@ -131,18 +95,16 @@ func (cpf *BaseMpscLinkedArrayQueueColdProducerFields[T]) soProducerLimit(newVal
 	(&cpf.producerLimit).Store(newValue)
 }
 
-type BaseMpscLinkedArrayQueue[T comparable] struct {
+type BaseMpscLinkedArrayQueue[T any] struct {
 	*BaseMpscLinkedArrayQueueProducerFields
 	*BaseMpscLinkedArrayQueueConsumerFields[T]
 	*BaseMpscLinkedArrayQueueColdProducerFields[T]
-	Head            *Buffer[T]
-	Tail            *Buffer[T]
-	Capacity        int64
-	JUMP            *T
-	BUFFER_CONSUMED *T
+	Head     *Buffer[T]
+	Tail     *Buffer[T]
+	Capacity int64
 }
 
-func NewBaseMpscLinkedArrayQueue[T comparable](initialCapacity int) *BaseMpscLinkedArrayQueue[T] {
+func NewBaseMpscLinkedArrayQueue[T any](initialCapacity int) *BaseMpscLinkedArrayQueue[T] {
 	_, err := util.CheckGreaterThanOrEqual(initialCapacity, 2, "initialCapacity")
 	if err != nil {
 		fmt.Println(err)
@@ -159,8 +121,6 @@ func NewBaseMpscLinkedArrayQueue[T comparable](initialCapacity int) *BaseMpscLin
 	firstBuffer := &Buffer[T]{data: buffer}
 
 	bmlaq := &BaseMpscLinkedArrayQueue[T]{
-		JUMP:                                   getJumpValue[T](),
-		BUFFER_CONSUMED:                        getBufferConsumedValue[T](),
 		Capacity:                               capacity,
 		Head:                                   firstBuffer,
 		Tail:                                   firstBuffer,
@@ -249,8 +209,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) RelaxedPoll() (T, bool) {
 	offset := cIndex & mask
 	e := lvRefElement[T](buffer, offset)
 	if e == nil {
-		if buffer[1] != nil && *lvRefElement[T](buffer, 1) == *b.JUMP {
-			soRefElement[T](buffer, offset, b.BUFFER_CONSUMED)
+		if buffer[1] != nil {
 			nextBuffer := b.nextBuffer()
 			return *b.newBufferPoll(nextBuffer, cIndex), true
 		}
@@ -292,7 +251,7 @@ func (b *BaseMpscLinkedArrayQueue[T]) resize(oldBuffer []*atomic.Pointer[T], pIn
 		panic("no clear value defined in func resize()")
 	}
 	// make new JUMP Value Pointer
-	jumpVal := *b.JUMP
+	var jumpVal T
 	jump := &jumpVal
 
 	newBufferLength := b.Capacity
@@ -356,14 +315,14 @@ func (b *BaseMpscLinkedArrayQueue[T]) appendNext(nextBuffer []*atomic.Pointer[T]
 	b.Tail = b.Tail.next
 }
 
-func lvRefElement[T comparable](buffer []*atomic.Pointer[T], index int64) *T {
+func lvRefElement[T any](buffer []*atomic.Pointer[T], index int64) *T {
 	if buffer[index] == nil {
 		return nil
 	}
 	return buffer[index].Load()
 }
 
-func soRefElement[T comparable](buffer []*atomic.Pointer[T], index int64, value *T) {
+func soRefElement[T any](buffer []*atomic.Pointer[T], index int64, value *T) {
 	if value == nil {
 		buffer[index] = nil
 		return

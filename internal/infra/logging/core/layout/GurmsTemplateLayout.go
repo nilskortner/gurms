@@ -13,7 +13,7 @@ var LEVELS [][]byte
 var NULL = []byte{'n', 'u', 'l', 'l'}
 var COLON_SEPARATOR = []byte{' ', ':', ' '}
 var TRACE_ID_LENGTH = 19
-var CLASS_NAME_LENGTH = 40
+var STRUCT_NAME_LENGTH = 40
 
 var NODE_TYPE_AI_SERVING = int('A')
 var NODE_TYPE_GATEWAY = int('G')
@@ -62,4 +62,39 @@ func NewGurmsTemplateLayout(nodeType node.NodeType, nodeId string) *GurmsTemplat
 		nodeType: typ,
 		nodeId:   noteId,
 	}
+}
+
+func FormatStructName(name string) []byte {
+	rawBytes := []byte(name)
+	if len(rawBytes) == STRUCT_NAME_LENGTH {
+		return rawBytes
+	}
+	if len(rawBytes) > STRUCT_NAME_LENGTH {
+		parts := lang.TokenizeToStringArray(name, ".")
+		structName := parts[len(parts)-1]
+		structNameLength := len(structName)
+		if structNameLength >= STRUCT_NAME_LENGTH {
+			return []byte(structName[:STRUCT_NAME_LENGTH])
+		}
+		result := make([]byte, STRUCT_NAME_LENGTH)
+		writeIndex := STRUCT_NAME_LENGTH
+		for i := len(parts) - 1; i >= 0; i-- {
+			part := []byte(parts[i])
+			if i == len(parts)-1 {
+				writeIndex -= len(part)
+				copy(result[writeIndex:], part)
+			} else if writeIndex >= 2 {
+				writeIndex -= 2
+				result[writeIndex] = part[0]
+				result[writeIndex+1] = '.'
+			} else {
+				break
+			}
+		}
+		for i := 0; i < writeIndex; i++ {
+			result[i] = ' '
+		}
+		return result
+	}
+	return []byte(lang.PadStart(name, STRUCT_NAME_LENGTH, ' '))
 }

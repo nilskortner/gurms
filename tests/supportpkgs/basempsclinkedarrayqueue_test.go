@@ -1,6 +1,7 @@
 package supportpkgs_test
 
 import (
+	"gurms/internal/infra/logging/core/model"
 	mpsc "gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	"strconv"
 	"testing"
@@ -10,8 +11,6 @@ import (
 func TestNew(t *testing.T) {
 	queue := mpsc.NewBaseMpscLinkedArrayQueue[string](1024)
 
-	t.Log(*queue.BUFFER_CONSUMED)
-	t.Log(*queue.JUMP)
 	t.Log(queue.Capacity)
 	t.Log(queue.GetBuffer())
 
@@ -98,7 +97,52 @@ func TestRelaxedPoll(t *testing.T) {
 	t.Errorf("test")
 }
 
-func TestMultiOfferRelaxedPoll(t *testing.T) {
+func TestMultiOfferRelaxedPollLogRecord(t *testing.T) {
+	queue := mpsc.NewBaseMpscLinkedArrayQueue[model.LogRecord](512)
+
+	length := 0
+	polllength := 0
+
+	var zeroValue model.LogRecord
+
+	for j := 0; j < 500; j++ {
+		go func() {
+			for i := 0; i < 1000; i++ {
+				queue.Offer(zeroValue)
+				length++
+			}
+		}()
+	}
+	time.Sleep(10 * time.Second)
+
+	count := 0
+	countf := 0
+	go func() {
+		for i := 0; i < 500000; i++ {
+			_, success := queue.RelaxedPoll()
+			// t.Log("poll: " + abc)
+			if success == true {
+				count++
+			} else {
+				countf++
+			}
+			polllength++
+		}
+	}()
+
+	time.Sleep(3 * time.Second)
+
+	time.Sleep(1 * time.Second)
+	t.Log(length)
+	t.Log(polllength)
+	t.Log("successful: " + strconv.Itoa(count))
+	t.Log("unsuccessful: " + strconv.Itoa(countf))
+	t.Errorf("testmultiofferrelaxed")
+
+	t.Log(queue)
+}
+
+func TestMultiOfferRelaxedPollString(t *testing.T) {
 	queue := mpsc.NewBaseMpscLinkedArrayQueue[string](512)
 
 	length := 0
@@ -131,21 +175,7 @@ func TestMultiOfferRelaxedPoll(t *testing.T) {
 			} else {
 				countf++
 			}
-			if i < 3000 {
-
-				// cData := queue.GetCBuffer()
-				// values := make([]string, len(cData))
-				// for i, ptr := range cData {
-				// 	if ptr != nil {
-				// 		values[i] = *ptr.Load()
-				// 	} else {
-				// 		values[i] = "nil"
-				// 	}
-				// }
-				// t.Log(values)
-
-				polllength++
-			}
+			polllength++
 		}
 	}()
 

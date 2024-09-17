@@ -1,6 +1,9 @@
 package lang
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 const LATIN1 byte = 0
 const UTF16 byte = 1
@@ -46,4 +49,17 @@ func PadStart(str string, minLength int, padRune byte) string {
 
 func IsBlank(str string) bool {
 	return len(str) == 0
+}
+
+func TokenizeToStringArray(str, delimiter string) []string {
+	tokens := strings.Split(str, delimiter)
+
+	var result []string
+	for _, token := range tokens {
+		trimmed := strings.TrimSpace(token)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
