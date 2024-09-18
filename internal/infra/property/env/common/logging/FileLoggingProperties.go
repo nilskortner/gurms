@@ -1,10 +1,12 @@
 package logging
 
-import "gurms/internal/infra/logging/core/model"
+import (
+	"gurms/internal/infra/logging/core/model/loglevel"
+)
 
 const DEFAULT_VALUE_ENABLED = true
 
-var DEFAULT_VALUE_LEVEL model.LogLevel = "INFO"
+var DEFAULT_VALUE_LEVEL loglevel.LogLevel = 2
 
 const DEFAULT_VALUE_FILE_PATH = "@HOME/log/.log"
 const DEFAULT_VALUE_MAX_FILES = 320
@@ -12,7 +14,7 @@ const DEFAULT_VALUE_FILE_SIZE_MB = 32
 
 type FileLoggingProperties struct {
 	enabled       bool
-	level         model.LogLevel
+	level         loglevel.LogLevel
 	filePath      string
 	maxFiles      int
 	maxFileSizeMb int
@@ -34,7 +36,7 @@ func (f *FileLoggingProperties) IsEnabled() bool {
 	return f.enabled
 }
 
-func (f *FileLoggingProperties) GetLevel() model.LogLevel {
+func (f *FileLoggingProperties) GetLevel() loglevel.LogLevel {
 	return f.level
 }
 

@@ -1,7 +1,7 @@
 package supportpkgs_test
 
 import (
-	"gurms/internal/infra/logging/core/model"
+	"gurms/internal/infra/logging/core/model/logrecord"
 	mpsc "gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	"strconv"
 	"testing"
@@ -98,12 +98,12 @@ func TestRelaxedPoll(t *testing.T) {
 }
 
 func TestMultiOfferRelaxedPollLogRecord(t *testing.T) {
-	queue := mpsc.NewBaseMpscLinkedArrayQueue[model.LogRecord](512)
+	queue := mpsc.NewBaseMpscLinkedArrayQueue[logrecord.LogRecord](512)
 
 	length := 0
 	polllength := 0
 
-	var zeroValue model.LogRecord
+	var zeroValue logrecord.LogRecord
 
 	for j := 0; j < 500; j++ {
 		go func() {

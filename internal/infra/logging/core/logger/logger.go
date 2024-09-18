@@ -1,13 +1,6 @@
 package logger
 
-const (
-	TRACE LogLevel = iota
-	DEBUG
-	INFO
-	WARN
-	ERROR
-	FATAL
-)
+import model "gurms/internal/infra/logging/core/model/loglevel"
 
 type Logger interface {
 	isTraceEnabled() bool
@@ -24,9 +17,9 @@ type Logger interface {
 
 	IsEnabled() bool
 
-	Log(level LogLevel, message string)
-	Logf(level LogLevel, format string, args ...interface{})
-	LogError(level LogLevel, message string, err error)
+	Log(level model.LogLevel, message string)
+	Logf(level model.LogLevel, format string, args ...interface{})
+	LogError(level model.LogLevel, message string, err error)
 
 	Debug(message string, args ...interface{})
 	Info(message string, args ...interface{})

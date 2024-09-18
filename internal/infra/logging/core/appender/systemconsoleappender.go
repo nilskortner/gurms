@@ -1,20 +1,24 @@
 package appender
 
 import (
-	"gurms/internal/infra/logging/core/model"
+	"gurms/internal/infra/logging/core/model/loglevel"
 )
 
 type SystemConsoleAppender struct {
 	appender BaseAppender
 }
 
-func NewSystemConsoleAppender(level model.LogLevel) *SystemConsoleAppender {
+func NewSystemConsoleAppender(level loglevel.LogLevel) *SystemConsoleAppender {
 	return &SystemConsoleAppender{
 		appender: *NewAppender(level),
 	}
 }
 
 func (s *SystemConsoleAppender) Append() {
+}
+
+func (s *SystemConsoleAppender) GetLevel() loglevel.LogLevel {
+	return s.appender.GetLevel()
 }
 
 // func append(record model.LogRecord) int {

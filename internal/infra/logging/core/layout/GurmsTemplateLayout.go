@@ -3,7 +3,7 @@ package layout
 import (
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/lang"
-	"gurms/internal/infra/logging/core/model"
+	"gurms/internal/infra/logging/core/model/loglevel"
 	"gurms/internal/supportpkgs/mathsupport"
 	"strings"
 )
@@ -21,12 +21,12 @@ var NODE_TYPE_SERVICE = int('S')
 var NODE_TYPE_UNKNOWN = int('U')
 
 func init() {
-	var levels = []model.LogLevel{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+	var levels = []loglevel.LogLevel{0, 1, 2, 3, 4, 5}
 	var levelCount = len(levels)
 	LEVELS = make([][]byte, levelCount)
 	maxLength := 0
 	for _, level := range levels {
-		maxLength = mathsupport.Max(len(level), maxLength)
+		maxLength = mathsupport.Max(len(level.String()), maxLength)
 	}
 	for i := 0; i < levelCount; i++ {
 		level := lang.PadStart(levels[i].String(), maxLength, ' ')

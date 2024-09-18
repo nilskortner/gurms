@@ -1,14 +1,14 @@
-package model
+package loglevel
 
-type LogLevel string
+type LogLevel int
 
 const (
-	TRACE LogLevel = "TRACE"
-	DEBUG LogLevel = "DEBUG"
-	INFO  LogLevel = "INFO"
-	WARN  LogLevel = "WARN"
-	ERROR LogLevel = "ERROR"
-	FATAL LogLevel = "FATAL"
+	TRACE LogLevel = iota
+	DEBUG
+	INFO
+	WARN
+	ERROR
+	FATAL
 )
 
 func (level LogLevel) IsLoggable(enabledLevel LogLevel) bool {

@@ -6,7 +6,7 @@ import (
 	"gurms/internal/infra/logging/core/appender"
 	"gurms/internal/infra/logging/core/appender/file/logfile"
 	"gurms/internal/infra/logging/core/compression"
-	"gurms/internal/infra/logging/core/model"
+	"gurms/internal/infra/logging/core/model/loglevel"
 	"gurms/internal/infra/timezone"
 	"gurms/internal/supportpkgs/datastructures/dequeue"
 	"gurms/internal/supportpkgs/mathsupport"
@@ -50,7 +50,7 @@ type RollingFileAppender struct {
 }
 
 func NewRollingFileAppender(
-	level model.LogLevel,
+	level loglevel.LogLevel,
 	file string,
 	maxFiles int,
 	maxFileMb int64,

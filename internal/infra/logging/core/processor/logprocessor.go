@@ -2,7 +2,7 @@ package processor
 
 import (
 	"gurms/internal/infra/logging/core/idle"
-	"gurms/internal/infra/logging/core/model"
+	"gurms/internal/infra/logging/core/model/logrecord"
 	"gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	mpsc "gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	"sync"
@@ -13,10 +13,10 @@ type LogProcessor struct {
 	active bool
 	wait   *sync.WaitGroup
 	count  int32
-	queue  *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[model.LogRecord]
+	queue  *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]
 }
 
-func NewLogProcessor(queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[model.LogRecord]) *LogProcessor {
+func NewLogProcessor(queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]) *LogProcessor {
 	return &LogProcessor{
 		active: true,
 		wait:   &sync.WaitGroup{},
@@ -36,9 +36,9 @@ func (lp *LogProcessor) waitClose(timeoutMillis int64) {
 	lp.active = false
 }
 
-func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueue[model.LogRecord]) {
+func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueue[logrecord.LogRecord]) {
 	idleStrategy := idle.NewBackoffIdleStrategy(128, 128, 1024000, 1024000)
-	var logRecord model.LogRecord
+	var logRecord logrecord.LogRecord
 	var success bool
 	for {
 		for {
@@ -47,7 +47,7 @@ func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueu
 				break
 			}
 			idleStrategy.Reset()
-			appenders := logRecord.GetLogger().getAppenders()
+			appenders := logRecord.GetAppenders()
 			// for appender: appenders {
 			// 	appender.append(logRecord)
 			// }
