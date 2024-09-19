@@ -2,6 +2,7 @@ package appender
 
 import (
 	"gurms/internal/infra/logging/core/model/loglevel"
+	"gurms/internal/infra/logging/core/model/logrecord"
 )
 
 type BaseAppender struct {
@@ -23,6 +24,5 @@ func (a BaseAppender) GetLevel() loglevel.LogLevel {
 	return a.level
 }
 
-func (a BaseAppender) Append() {
-
+func (a BaseAppender) Append(logrecord.LogRecord) {
 }

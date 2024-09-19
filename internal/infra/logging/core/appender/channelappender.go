@@ -2,6 +2,7 @@ package appender
 
 import (
 	"gurms/internal/infra/logging/core/model/loglevel"
+	"gurms/internal/infra/logging/core/model/logrecord"
 	"os"
 )
 
@@ -19,4 +20,8 @@ func NewChannelAppender(level loglevel.LogLevel) *ChannelAppender {
 
 func (c *ChannelAppender) GetLevel() loglevel.LogLevel {
 	return c.appender.GetLevel()
+}
+
+func (c *ChannelAppender) Append(logrecord.LogRecord) {
+
 }

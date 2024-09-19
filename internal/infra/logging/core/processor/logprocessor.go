@@ -28,7 +28,7 @@ func (lp *LogProcessor) Start() {
 	if atomic.LoadInt32(&lp.count) == 0 {
 		lp.wait.Add(1)
 		atomic.AddInt32(&lp.count, 1)
-		go lp.drainLogsForever()
+		//go lp.drainLogsForever()
 	}
 }
 
@@ -47,10 +47,13 @@ func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueu
 				break
 			}
 			idleStrategy.Reset()
-			appenders := logRecord.GetAppenders()
-			// for appender: appenders {
-			// 	appender.append(logRecord)
-			// }
+			appenders := logRecord
+			for _, appender := range appenders {
+				appender.Append(logRecord)
+				if err != nil {
+					println("Append failed. logprocessor: func drainLogsForever")
+				}
+			}
 			logRecord.ClearData()
 		}
 		if !lp.active {

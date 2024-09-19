@@ -1,11 +1,16 @@
 package layout
 
 import (
+	"bytes"
+	"gurms/internal/infra/bufferpool"
 	"gurms/internal/infra/cluster/node"
+	"gurms/internal/infra/infraerror"
 	"gurms/internal/infra/lang"
 	"gurms/internal/infra/logging/core/model/loglevel"
+	"gurms/internal/infra/timezone"
 	"gurms/internal/supportpkgs/mathsupport"
 	"strings"
+	"time"
 )
 
 var ESTIMATED_PATTERN_TEXT_LENGTH = 128
@@ -42,7 +47,7 @@ func init() {
 
 type GurmsTemplateLayout struct {
 	nodeType int
-	nodeId   string
+	nodeId   []byte
 }
 
 func NewGurmsTemplateLayout(nodeType node.NodeType, nodeId string) *GurmsTemplateLayout {
@@ -60,7 +65,105 @@ func NewGurmsTemplateLayout(nodeType node.NodeType, nodeId string) *GurmsTemplat
 	}
 	return &GurmsTemplateLayout{
 		nodeType: typ,
-		nodeId:   noteId,
+		nodeId:   []byte(noteId),
+	}
+}
+
+func Format(shouldParse bool,
+	structName []byte,
+	level loglevel.LogLevel,
+	msg string,
+	args []interface{},
+	err error,
+	layoutAl *GurmsTemplateLayout) *bytes.Buffer {
+	estimatedErrorLength := 0
+	if err != nil {
+		causes := infraerror.CountCauses(err)
+		if causes == 0 {
+			estimatedErrorLength = 64
+		} else {
+			estimatedErrorLength = causes * 1024
+		}
+	}
+	var estimatedLength int
+	if msg == "" {
+		estimatedLength = 0
+	} else {
+		estimatedLength = len(msg) + ESTIMATED_PATTERN_TEXT_LENGTH + estimatedErrorLength
+	}
+	if args != nil && shouldParse {
+		estimatedLength += len(args) * 16
+	}
+	buffer := bufferpool.BufferPool.Get().(*bytes.Buffer)
+
+	return format0(buffer, shouldParse, structName, level, msg, args, err, layoutAl)
+}
+
+func format0(buffer *bytes.Buffer,
+	shouldParse bool,
+	structName []byte,
+	level loglevel.LogLevel,
+	msg string,
+	args []interface{},
+	err error,
+	layoutAl *GurmsTemplateLayout) *bytes.Buffer {
+	timestamp := timezone.ToBytes(time.Now())
+
+	buffer.Write(timestamp)
+	buffer.WriteByte(WHITESPACE)
+	buffer.Write(LEVELS[level])
+	buffer.WriteByte(WHITESPACE)
+	buffer.WriteByte(byte(layoutAl.nodeType))
+	buffer.WriteByte(WHITESPACE)
+	buffer.Write(layoutAl.nodeId)
+	buffer.WriteByte(WHITESPACE)
+
+	if structName != nil {
+		buffer.WriteByte(WHITESPACE)
+		buffer.Write(structName)
+	}
+	buffer.Write(COLON_SEPARATOR)
+
+	if msg != "" {
+		appendMessage(shouldParse, msg, args, buffer)
+	}
+
+	if err != nil {
+		appendError(err, buffer)
+	}
+
+	buffer.WriteByte('\n')
+	return buffer
+}
+
+func appendMessage(shouldParse bool,
+	msg string,
+	args []interface{},
+	buffer *bytes.Buffer) {
+	if !shouldParse {
+		buffer.Write([]byte(msg))
+		return
+	}
+	var argCount int
+	if args == nil {
+		argCount = 0
+	} else {
+		argCount = len(args)
+	}
+	if argCount == 0 {
+		buffer.Write([]byte(msg))
+		return
+	}
+	argIndex := 0
+	bytes := []byte(msg)
+	length := len(bytes)
+	for i := 0; i < length; i++ {
+		b := bytes[i]
+		if b == '{' && i < length-1 && bytes[i+1] == '}' {
+			if argIndex < argCount {
+				arg := 
+			}
+		}
 	}
 }
 

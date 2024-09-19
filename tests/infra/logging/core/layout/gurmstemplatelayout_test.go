@@ -6,5 +6,7 @@ import (
 )
 
 func TestFormatStructName(t *testing.T) {
-	layout.FormatStructName("FrankWalterSteinmeier")
+	result := string(layout.FormatStructName("Frank.Walter.Steinmeier"))
+
+	t.Log(result)
 }
