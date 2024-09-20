@@ -10,7 +10,7 @@ type BaseAppender struct {
 }
 
 type Appender interface {
-	Append()
+	Append(logrecord.LogRecord)
 	GetLevel() loglevel.LogLevel
 }
 

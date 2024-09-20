@@ -47,13 +47,13 @@ func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueu
 				break
 			}
 			idleStrategy.Reset()
-			appenders := logRecord
-			for _, appender := range appenders {
-				appender.Append(logRecord)
-				if err != nil {
-					println("Append failed. logprocessor: func drainLogsForever")
-				}
-			}
+			//appenders := logRecord
+			// for _, appender := range appenders {
+			// 	appender.Append(logRecord)
+			// 	if err != nil {
+			// 		println("Append failed. logprocessor: func drainLogsForever")
+			// 	}
+			// }
 			logRecord.ClearData()
 		}
 		if !lp.active {

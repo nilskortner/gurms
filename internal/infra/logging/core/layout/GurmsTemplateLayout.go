@@ -2,6 +2,8 @@ package layout
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"gurms/internal/infra/bufferpool"
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/infraerror"
@@ -69,13 +71,42 @@ func NewGurmsTemplateLayout(nodeType node.NodeType, nodeId string) *GurmsTemplat
 	}
 }
 
-func Format(shouldParse bool,
+func appendError(err error, buffer *bytes.Buffer) {
+	buffer.WriteByte('\n')
+
+	var errorMessage string
+
+	level := infraerror.CountCauses(err)
+
+	for err != nil {
+		errorMessage += fmt.Sprintf("level %d error: %v", level, err.Error())
+
+		err = errors.Unwrap(err)
+		if err != nil {
+			errorMessage += " | "
+		}
+		level--
+	}
+
+	buffer.Write([]byte(errorMessage))
+}
+
+func FormatBasic(layoutAL *GurmsTemplateLayout,
+	structName []byte,
+	level loglevel.LogLevel,
+	msg *bytes.Buffer) *bytes.Buffer {
+	buffer := bufferpool.BufferPool.Get().(*bytes.Buffer)
+
+	return formatBasic0(layoutAL, buffer, structName, level, msg)
+}
+
+func Format(layoutAL *GurmsTemplateLayout,
+	shouldParse bool,
 	structName []byte,
 	level loglevel.LogLevel,
 	msg string,
 	args []interface{},
-	err error,
-	layoutAl *GurmsTemplateLayout) *bytes.Buffer {
+	err error) *bytes.Buffer {
 	estimatedErrorLength := 0
 	if err != nil {
 		causes := infraerror.CountCauses(err)
@@ -94,28 +125,28 @@ func Format(shouldParse bool,
 	if args != nil && shouldParse {
 		estimatedLength += len(args) * 16
 	}
-	buffer := bufferpool.BufferPool.Get().(*bytes.Buffer)
+	buffer := bufferpool.NewBufferWithLength(estimatedLength)
 
-	return format0(buffer, shouldParse, structName, level, msg, args, err, layoutAl)
+	return format0(buffer, layoutAL, shouldParse, structName, level, msg, args, err)
 }
 
 func format0(buffer *bytes.Buffer,
+	layoutAL *GurmsTemplateLayout,
 	shouldParse bool,
 	structName []byte,
 	level loglevel.LogLevel,
 	msg string,
 	args []interface{},
-	err error,
-	layoutAl *GurmsTemplateLayout) *bytes.Buffer {
+	err error) *bytes.Buffer {
 	timestamp := timezone.ToBytes(time.Now())
 
 	buffer.Write(timestamp)
 	buffer.WriteByte(WHITESPACE)
 	buffer.Write(LEVELS[level])
 	buffer.WriteByte(WHITESPACE)
-	buffer.WriteByte(byte(layoutAl.nodeType))
+	buffer.WriteByte(byte(layoutAL.nodeType))
 	buffer.WriteByte(WHITESPACE)
-	buffer.Write(layoutAl.nodeId)
+	buffer.Write(layoutAL.nodeId)
 	buffer.WriteByte(WHITESPACE)
 
 	if structName != nil {
@@ -133,6 +164,37 @@ func format0(buffer *bytes.Buffer,
 	}
 
 	buffer.WriteByte('\n')
+	return buffer
+}
+
+func formatBasic0(layoutAL *GurmsTemplateLayout,
+	buffer *bytes.Buffer,
+	structName []byte,
+	level loglevel.LogLevel,
+	msg *bytes.Buffer) *bytes.Buffer {
+	timestamp := timezone.ToBytes(time.Now())
+
+	buffer.Write(timestamp)
+	buffer.WriteByte(WHITESPACE)
+	buffer.Write(LEVELS[level])
+	buffer.WriteByte(WHITESPACE)
+	buffer.WriteByte(byte(layoutAL.nodeType))
+	buffer.WriteByte(WHITESPACE)
+	buffer.Write(layoutAL.nodeId)
+
+	if structName != nil {
+		buffer.WriteByte(WHITESPACE)
+		buffer.Write(structName)
+	}
+	buffer.Write(COLON_SEPARATOR)
+
+	msg.WriteByte('\n')
+
+	buffer.Write(msg.Bytes())
+
+	msg.Reset()
+	bufferpool.BufferPool.Put(msg)
+
 	return buffer
 }
 
@@ -161,8 +223,16 @@ func appendMessage(shouldParse bool,
 		b := bytes[i]
 		if b == '{' && i < length-1 && bytes[i+1] == '}' {
 			if argIndex < argCount {
-				arg := 
+				arg := args[argIndex]
+				argIndex++
+				str := fmt.Sprintf("%v", arg)
+				buffer.Write([]byte(str))
+			} else {
+				buffer.Write(nil)
 			}
+			i++
+		} else {
+			buffer.WriteByte(b)
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"gurms/internal/infra/logging/core/appender/file/logfile"
 	"gurms/internal/infra/logging/core/compression"
 	"gurms/internal/infra/logging/core/model/loglevel"
+	"gurms/internal/infra/logging/core/model/logrecord"
 	"gurms/internal/infra/timezone"
 	"gurms/internal/supportpkgs/datastructures/dequeue"
 	"gurms/internal/supportpkgs/mathsupport"
@@ -132,8 +133,12 @@ func NewRollingFileAppender(
 	return rfa
 }
 
-func (r *RollingFileAppender) Append() {
+func (r *RollingFileAppender) Append(logrecord.LogRecord) {
 
+}
+
+func (r *RollingFileAppender) GetLevel() loglevel.LogLevel {
+	return r.channelAppender.GetLevel()
 }
 
 func (r *RollingFileAppender) openNewFile(recoverFromError bool) {

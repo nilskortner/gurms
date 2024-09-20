@@ -86,8 +86,6 @@ func initialize(
 	loggerlayout = layout.NewGurmsTemplateLayout(nodeType, nodeId)
 	initialized = true
 
-	InternalLogger.init()
-
 	processor := processor.NewLogProcessor(Queue)
 	processor.Start()
 }

@@ -16,7 +16,7 @@ type AsyncLogger struct {
 	name        string
 	shouldParse bool
 	appenders   []appender.Appender
-	layout      layout.GurmsTemplateLayout
+	layout      *layout.GurmsTemplateLayout
 	queue       *mpsc.MpscUnboundedArrayQueue[logrecord.LogRecord]
 	nameForLog  []byte
 	level       int
@@ -26,7 +26,7 @@ func NewAsyncLogger(
 	name string,
 	shouldParse bool,
 	appenders []appender.Appender,
-	layoutAL layout.GurmsTemplateLayout,
+	layoutAL *layout.GurmsTemplateLayout,
 	queue *mpsc.MpscUnboundedArrayQueue[logrecord.LogRecord]) *AsyncLogger {
 	nameForLog := layout.FormatStructName(name)
 
@@ -83,13 +83,21 @@ func (a *AsyncLogger) Log(level loglevel.LogLevel, message string) {
 	if !a.IsEnabled(level) {
 		return
 	}
-	doLog(level, message, 0, 0)
+	a.doLog(level, message, nil, nil)
 }
 
-func (a *AsyncLogger) doLog(level loglevel.LogLevel, message string) {
+func (a *AsyncLogger) doLog(level loglevel.LogLevel, message string, args []interface{}, err error) {
 	var buffer *bytes.Buffer
 
-	buffer := layout.Format(a.shouldParse, a.nameForLog, a.level, message, a.layout)
-	a.queue.Offer(logrecord.NewLogRecord(a.name, level, time.Now().UnixMilli(), buffer))
+	buffer = layout.Format(a.layout, a.shouldParse, a.nameForLog, level, message, args, err)
 
+	a.queue.Offer(logrecord.NewLogRecord(a.name, level, time.Now().UnixMilli(), buffer))
+}
+
+func (a *AsyncLogger) doLogBasic(level loglevel.LogLevel, message *bytes.Buffer) {
+	var buffer *bytes.Buffer
+
+	buffer = layout.FormatBasic(a.layout, a.nameForLog, level, message)
+
+	a.queue.Offer(logrecord.NewLogRecord(a.name, level, time.Now().UnixMilli(), buffer))
 }

@@ -11,7 +11,16 @@ func init() {
 	BufferPool = sync.Pool{
 		New: func() interface{} {
 			var buffer bytes.Buffer
-			return buffer
+			var bufferp *bytes.Buffer = &buffer
+			return bufferp
 		},
 	}
+}
+
+func NewBufferWithLength(length int) *bytes.Buffer {
+	buffer := BufferPool.Get().(*bytes.Buffer)
+
+	buffer.Grow(length)
+
+	return buffer
 }
