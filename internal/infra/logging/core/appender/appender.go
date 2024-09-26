@@ -10,7 +10,7 @@ type BaseAppender struct {
 }
 
 type Appender interface {
-	Append(logrecord.LogRecord)
+	Append(logrecord.LogRecord) int
 	GetLevel() loglevel.LogLevel
 }
 
@@ -22,7 +22,4 @@ func NewAppender(level loglevel.LogLevel) *BaseAppender {
 
 func (a BaseAppender) GetLevel() loglevel.LogLevel {
 	return a.level
-}
-
-func (a BaseAppender) Append(logrecord.LogRecord) {
 }

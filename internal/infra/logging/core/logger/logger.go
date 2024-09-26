@@ -1,32 +1,39 @@
 package logger
 
-import model "gurms/internal/infra/logging/core/model/loglevel"
+import (
+	"bytes"
+	model "gurms/internal/infra/logging/core/model/loglevel"
+)
 
 type Logger interface {
-	isTraceEnabled() bool
+	IsTraceEnabled() bool
 
-	isDebugEnabled() bool
+	IsDebugEnabled() bool
 
-	isInfoEnabled() bool
+	IsInfoEnabled() bool
 
-	isWarnEnabled() bool
+	IsWarnEnabled() bool
 
-	isErrorEnabled() bool
+	IsErrorEnabled() bool
 
-	isFatalEnabled() bool
+	IsFatalEnabled() bool
 
-	IsEnabled() bool
+	IsEnabled(model.LogLevel) bool
 
 	Log(level model.LogLevel, message string)
-	Logf(level model.LogLevel, format string, args ...interface{})
-	LogError(level model.LogLevel, message string, err error)
+	LogWithArguments(level model.LogLevel, format string, args ...interface{})
+	LogWithError(level model.LogLevel, message string, err error)
 
 	Debug(message string, args ...interface{})
-	Info(message string, args ...interface{})
-	InfoBytes(data []byte)
-	Warn(message string, args ...interface{})
+	InfoWithArgs(message string, args ...interface{})
+	Info(data *bytes.Buffer)
+	Warn(message string)
+	WarnWithArgs(message string, args ...interface{})
 	Error(err error)
-	Errorf(message string, err error, args ...interface{})
-	Fatal(message string, args ...interface{})
-	FatalError(message string, err error)
+	ErrorWithMessage(message string, err error)
+	ErrorWithArgs(message string, args ...interface{})
+	ErrorWithBuffer(message *bytes.Buffer)
+	Fatal(message string)
+	FatalWithArgs(message string, args ...interface{})
+	FatalWithError(message string, err error)
 }

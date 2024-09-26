@@ -91,18 +91,18 @@ func NewRollingFileAppender(
 	if enableCompression {
 		gzipOutputStream, err = compression.NewFastGzipOutputStream("a", COMPRESSION_LEVEL, int(maxFileBytes/10))
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Internal Logger: %s", err)
 		}
 	}
 
 	err = os.MkdirAll(fileDirectory, 0755)
 	if err != nil {
-		fmt.Println("Failed to create the directory ("+fileDirectory+")for log files", err)
+		fmt.Println("Internal Logger: Failed to create the directory ("+fileDirectory+")for log files", err)
 	}
 	var files *dequeue.Dequeue
 	files, err = Visit(fileDirectory, filePrefix, fileSuffix, FILE_MIDDLE, maxFiles)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Internal Logger: %s", err)
 	}
 
 	var nextIndex int64
@@ -133,7 +133,7 @@ func NewRollingFileAppender(
 	return rfa
 }
 
-func (r *RollingFileAppender) Append(logrecord.LogRecord) {
+func (r *RollingFileAppender) Append(logrecord.LogRecord) int {
 
 }
 
@@ -151,21 +151,21 @@ func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 			if os.IsExist(err) {
 				if info, err := os.Stat(dir); err == nil && !info.IsDir() {
 					if err := os.Remove(dir); err != nil {
-						fmt.Println("Failed to delete file:", err)
+						fmt.Println("Internal Logger: Failed to delete file:", err)
 					}
 					err = os.MkdirAll(dir, os.ModePerm)
 					if err != nil {
-						fmt.Println("Failed to create directory after deleting file:", err)
+						fmt.Println("Internal Logger: Failed to create directory after deleting file:", err)
 					}
 				}
 			} else {
-				fmt.Println("Failed to create directory:", err)
+				fmt.Println("Internal Logger: Failed to create directory:", err)
 			}
 		}
 	} else {
 		err := os.MkdirAll(r.fileDirectory, 0755)
 		if err != nil {
-			fmt.Println("Error while creating the directory: "+dir, err)
+			fmt.Println("Internal Logger: Error while creating the directory: "+dir, err)
 		}
 	}
 	var fileName string
@@ -195,7 +195,7 @@ func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 
 	fileInfo, err := r.channelAppender.File.Stat()
 	if err != nil {
-		fmt.Println("failed to get file stats:"+filePath, err)
+		fmt.Println("Internal Logger: failed to get file stats:"+filePath, err)
 		if recoverFromError {
 			fmt.Println(". Fallback to 0")
 			r.nextFileBytes = 0
@@ -217,13 +217,13 @@ func (r *RollingFileAppender) openExistingFile(existingFile logfile.LogFile) {
 	var err error
 	r.channelAppender.File, err = openFile(filePath)
 	if err != nil {
-		fmt.Println("failed to open file:", err)
+		fmt.Println("Internal Logger: failed to open file:", err)
 	}
 	r.currentFile = existingFile
 
 	fileInfo, err := r.channelAppender.File.Stat()
 	if err != nil {
-		fmt.Println("failed to get file stats:"+filePath, err)
+		fmt.Println("Internal Logger: failed to get file stats:"+filePath, err)
 	} else {
 		r.nextFileBytes = fileInfo.Size()
 	}
@@ -236,12 +236,13 @@ func openFile(filePath string) (*os.File, error) {
 	if directory != "." {
 		err := os.MkdirAll(directory, 0755)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create the directory (%s) for log files: %w", directory, err)
+			return nil, fmt.Errorf(
+				"Internal Logger: failed to create the directory (%s) for log files: %w", directory, err)
 		}
 	}
 	file, err := os.OpenFile(filePath, APPEND_OPTIONS, 0666)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open the file: %s: %w", filePath, err)
+		return nil, fmt.Errorf("Internal Logger: failed to open the file: %s: %w", filePath, err)
 	}
 	return file, nil
 }

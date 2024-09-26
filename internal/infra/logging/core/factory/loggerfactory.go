@@ -1,4 +1,4 @@
-package logger
+package factory
 
 import (
 	"gurms/internal/infra/cluster/node"
@@ -6,7 +6,6 @@ import (
 	"gurms/internal/infra/logging/core/appender/file"
 	"gurms/internal/infra/logging/core/layout"
 	"gurms/internal/infra/logging/core/model/logrecord"
-	"gurms/internal/infra/logging/core/processor"
 	"gurms/internal/infra/property/env/common/logging"
 	"gurms/internal/infra/system"
 	"strings"
@@ -27,7 +26,7 @@ var loggerlayout *layout.GurmsTemplateLayout
 
 var initialized bool
 
-var ALL_APPENDERS copyonwriteslice.CopyOnWriteSliceAppender
+var ALL_APPENDERS copyonwriteslice.CopyOnWriteSlice[appender.Appender]
 var DEFAULT_APPENDERS = make([]appender.Appender, 0, 2)
 var Queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]
 var UNINITIALIZED_LOGGERS linkedlist.LinkedList
@@ -37,7 +36,7 @@ var serverTypeName string
 var fileLoggingProperties logging.FileLoggingProperties
 var defaultConsoleAppender appender.Appender
 
-var logprocessor processor.LogProcessor
+var logprocessor LogProcessor
 
 // use sync once?
 func initialize(
@@ -86,7 +85,7 @@ func initialize(
 	loggerlayout = layout.NewGurmsTemplateLayout(nodeType, nodeId)
 	initialized = true
 
-	processor := processor.NewLogProcessor(Queue)
+	processor := NewLogProcessor(Queue)
 	processor.Start()
 }
 

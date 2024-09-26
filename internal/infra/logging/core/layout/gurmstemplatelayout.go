@@ -79,9 +79,18 @@ func appendError(err error, buffer *bytes.Buffer) {
 	level := infraerror.CountCauses(err)
 
 	for err != nil {
-		errorMessage += fmt.Sprintf("level %d error: %v", level, err.Error())
+		errorString := fmt.Sprintf("%s", err)
 
 		err = errors.Unwrap(err)
+
+		errorString2 := fmt.Sprintf("%s", err)
+		length := len(errorString) - len(errorString2)
+		if level == 0 {
+			length = len(errorString)
+		}
+		errorString = errorString[0:length]
+
+		errorMessage += fmt.Sprintf("level %d: %s", level, errorString)
 		if err != nil {
 			errorMessage += " | "
 		}

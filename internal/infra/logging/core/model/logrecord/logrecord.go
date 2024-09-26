@@ -6,18 +6,19 @@ import (
 )
 
 type LogRecord struct {
-	loggername string
-	level      loglevel.LogLevel
-	timestamp  int64
-	data       *bytes.Buffer
+	logger    any
+	level     loglevel.LogLevel
+	timestamp int64
+	data      *bytes.Buffer
 }
 
-func NewLogRecord(loggername string, level loglevel.LogLevel, timestamp int64, data *bytes.Buffer) LogRecord {
+// logger needs to be of type *AsyncLogger
+func NewLogRecord(logger any, level loglevel.LogLevel, timestamp int64, data *bytes.Buffer) LogRecord {
 	return LogRecord{
-		loggername: loggername,
-		level:      level,
-		timestamp:  timestamp,
-		data:       data,
+		logger:    logger,
+		level:     level,
+		timestamp: timestamp,
+		data:      data,
 	}
 }
 
@@ -25,8 +26,12 @@ func (l *LogRecord) Level() loglevel.LogLevel {
 	return l.level
 }
 
-func (l *LogRecord) GetLogger() string {
-	return l.loggername
+func (l *LogRecord) GetLogger() any {
+	return l.logger
+}
+
+func (l *LogRecord) GetBuffer() *bytes.Buffer {
+	return l.data
 }
 
 func (l *LogRecord) ClearData() {

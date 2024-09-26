@@ -51,6 +51,10 @@ func NewAsyncLogger(
 	}
 }
 
+func (a *AsyncLogger) GetAppenders() []appender.Appender {
+	return a.appenders
+}
+
 func (a *AsyncLogger) IsTraceEnabled() bool {
 	return a.level <= int(loglevel.TRACE)
 }
@@ -86,18 +90,76 @@ func (a *AsyncLogger) Log(level loglevel.LogLevel, message string) {
 	a.doLog(level, message, nil, nil)
 }
 
+func (a *AsyncLogger) LogWithArguments(level loglevel.LogLevel, message string, arguments ...interface{}) {
+	if !a.IsEnabled(level) {
+		return
+	}
+	a.doLog(level, message, arguments, nil)
+}
+
+func (a *AsyncLogger) LogWithError(level loglevel.LogLevel, message string, err error) {
+	if !a.IsEnabled(level) {
+		return
+	}
+	a.doLog(level, message, nil, err)
+}
+
+func (a *AsyncLogger) Debug(message string, args ...interface{}) {
+	a.LogWithArguments(loglevel.DEBUG, message, args)
+}
+
+func (a *AsyncLogger) InfoWithArgs(message string, args ...interface{}) {
+	a.LogWithArguments(loglevel.INFO, message, args)
+}
+
+func (a *AsyncLogger) Info(message *bytes.Buffer) {
+	a.doLogBasic(loglevel.INFO, message)
+}
+
+func (a *AsyncLogger) Warn(message string) {
+	a.doLog(loglevel.WARN, message, nil, nil)
+}
+
+func (a *AsyncLogger) WarnWithArgs(message string, args ...interface{}) {
+	a.LogWithArguments(loglevel.WARN, message, args)
+}
+
+func (a *AsyncLogger) Error(err error) {
+	a.doLog(loglevel.ERROR, "", nil, err)
+}
+
+func (a *AsyncLogger) ErrorWithMessage(message string, err error) {
+	a.doLog(loglevel.ERROR, message, nil, err)
+}
+
+func (a *AsyncLogger) ErrorWithArgs(message string, args ...interface{}) {
+	a.LogWithArguments(loglevel.ERROR, message, args)
+}
+
+func (a *AsyncLogger) ErrorWithBuffer(message *bytes.Buffer) {
+	a.doLogBasic(loglevel.ERROR, message)
+}
+
+func (a *AsyncLogger) Fatal(message string) {
+	a.doLog(loglevel.FATAL, message, nil, nil)
+}
+
+func (a *AsyncLogger) FatalWithArgs(message string, args ...interface{}) {
+	a.LogWithArguments(loglevel.FATAL, message, args)
+}
+
+func (a *AsyncLogger) FatalWithError(message string, err error) {
+	a.doLog(loglevel.FATAL, message, nil, err)
+}
+
 func (a *AsyncLogger) doLog(level loglevel.LogLevel, message string, args []interface{}, err error) {
-	var buffer *bytes.Buffer
+	buffer := layout.Format(a.layout, a.shouldParse, a.nameForLog, level, message, args, err)
 
-	buffer = layout.Format(a.layout, a.shouldParse, a.nameForLog, level, message, args, err)
-
-	a.queue.Offer(logrecord.NewLogRecord(a.name, level, time.Now().UnixMilli(), buffer))
+	a.queue.Offer(logrecord.NewLogRecord(a, level, time.Now().UnixMilli(), buffer))
 }
 
 func (a *AsyncLogger) doLogBasic(level loglevel.LogLevel, message *bytes.Buffer) {
-	var buffer *bytes.Buffer
+	buffer := layout.FormatBasic(a.layout, a.nameForLog, level, message)
 
-	buffer = layout.FormatBasic(a.layout, a.nameForLog, level, message)
-
-	a.queue.Offer(logrecord.NewLogRecord(a.name, level, time.Now().UnixMilli(), buffer))
+	a.queue.Offer(logrecord.NewLogRecord(a, level, time.Now().UnixMilli(), buffer))
 }

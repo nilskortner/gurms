@@ -1,14 +1,13 @@
 package appender
 
 import (
+	"fmt"
 	"gurms/internal/infra/logging/core/model/loglevel"
 	"gurms/internal/infra/logging/core/model/logrecord"
-	"os"
 )
 
 type ChannelAppender struct {
 	appender *BaseAppender
-	File     *os.File
 }
 
 func NewChannelAppender(level loglevel.LogLevel) *ChannelAppender {
@@ -22,6 +21,13 @@ func (c *ChannelAppender) GetLevel() loglevel.LogLevel {
 	return c.appender.GetLevel()
 }
 
-func (c *ChannelAppender) Append(logrecord.LogRecord) {
+func (c *ChannelAppender) Append(record logrecord.LogRecord) int {
+	if !record.Level().IsLoggable(c.appender.level) {
+		return 0
+	}
+	buffer := record.GetBuffer()
 
+	fmt.Println(buffer.String())
+
+	return buffer.Len()
 }

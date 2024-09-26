@@ -1,34 +1,30 @@
-package processor
+package factory
 
 import (
 	"gurms/internal/infra/logging/core/idle"
+	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/logging/core/model/logrecord"
-	"gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	mpsc "gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
-	"sync"
 	"sync/atomic"
 )
 
 type LogProcessor struct {
 	active bool
-	wait   *sync.WaitGroup
-	count  int32
-	queue  *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]
+	wait   atomic.Int64
+	queue  *mpsc.MpscUnboundedArrayQueue[logrecord.LogRecord]
 }
 
-func NewLogProcessor(queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]) *LogProcessor {
+func NewLogProcessor(queue *mpsc.MpscUnboundedArrayQueue[logrecord.LogRecord]) *LogProcessor {
 	return &LogProcessor{
 		active: true,
-		wait:   &sync.WaitGroup{},
 		queue:  queue,
 	}
 }
 
 func (lp *LogProcessor) Start() {
-	if atomic.LoadInt32(&lp.count) == 0 {
+	if lp.wait.Load() == 0 {
 		lp.wait.Add(1)
-		atomic.AddInt32(&lp.count, 1)
-		//go lp.drainLogsForever()
+		go lp.drainLogsForever(*lp.queue)
 	}
 }
 
@@ -43,17 +39,15 @@ func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueu
 	for {
 		for {
 			logRecord, success = recordQueue.RelaxedPoll()
-			if success == false {
+			if !success {
 				break
 			}
 			idleStrategy.Reset()
-			//appenders := logRecord
-			// for _, appender := range appenders {
-			// 	appender.Append(logRecord)
-			// 	if err != nil {
-			// 		println("Append failed. logprocessor: func drainLogsForever")
-			// 	}
-			// }
+			logger := logRecord.GetLogger().(*logger.AsyncLogger)
+			appenders := logger.GetAppenders()
+			for _, appender := range appenders {
+				appender.Append(logRecord)
+			}
 			logRecord.ClearData()
 		}
 		if !lp.active {
@@ -61,5 +55,4 @@ func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueu
 		}
 		idleStrategy.Idle()
 	}
-	//for
 }
