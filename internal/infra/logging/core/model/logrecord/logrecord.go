@@ -13,7 +13,12 @@ type LogRecord struct {
 }
 
 // logger needs to be of type *AsyncLogger
+//
+// *bytes.Buffer cant be nil
 func NewLogRecord(logger any, level loglevel.LogLevel, timestamp int64, data *bytes.Buffer) LogRecord {
+	if data == nil {
+		panic("nil pointer in NewLogRecord")
+	}
 	return LogRecord{
 		logger:    logger,
 		level:     level,
@@ -24,6 +29,10 @@ func NewLogRecord(logger any, level loglevel.LogLevel, timestamp int64, data *by
 
 func (l *LogRecord) Level() loglevel.LogLevel {
 	return l.level
+}
+
+func (l *LogRecord) Timestamp() int64 {
+	return l.timestamp
 }
 
 func (l *LogRecord) GetLogger() any {

@@ -6,6 +6,7 @@ import (
 	"gurms/internal/infra/logging/core/model/logrecord"
 	mpsc "gurms/internal/supportpkgs/datastructures/mpscunboundedarrayqueue"
 	"sync/atomic"
+	"time"
 )
 
 type LogProcessor struct {
@@ -30,6 +31,7 @@ func (lp *LogProcessor) Start() {
 
 func (lp *LogProcessor) waitClose(timeoutMillis int64) {
 	lp.active = false
+	time.Sleep(time.Millisecond * time.Duration(timeoutMillis))
 }
 
 func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueue[logrecord.LogRecord]) {
@@ -51,6 +53,7 @@ func (lp *LogProcessor) drainLogsForever(recordQueue mpsc.MpscUnboundedArrayQueu
 			logRecord.ClearData()
 		}
 		if !lp.active {
+			lp.wait.Store(0)
 			break
 		}
 		idleStrategy.Idle()

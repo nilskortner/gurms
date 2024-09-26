@@ -49,7 +49,6 @@ func (b *BackoffIdleStrategy) Idle() {
 
 	case SPINNING:
 		if b.value+1 <= b.maxSpins {
-			b.value++
 			break
 		}
 		b.value = 0

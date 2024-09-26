@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"gurms/internal/infra/logging/core/model/loglevel"
 	"gurms/internal/infra/logging/core/model/logrecord"
+	"os"
 )
 
 type ChannelAppender struct {
 	appender *BaseAppender
+	File     *os.File
 }
 
 func NewChannelAppender(level loglevel.LogLevel) *ChannelAppender {

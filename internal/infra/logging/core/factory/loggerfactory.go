@@ -5,10 +5,12 @@ import (
 	"gurms/internal/infra/logging/core/appender"
 	"gurms/internal/infra/logging/core/appender/file"
 	"gurms/internal/infra/logging/core/layout"
+	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/logging/core/model/logrecord"
 	"gurms/internal/infra/property/env/common/logging"
 	"gurms/internal/infra/system"
 	"strings"
+	"sync"
 
 	"gurms/internal/supportpkgs/datastructures/copyonwriteslice"
 	"gurms/internal/supportpkgs/datastructures/linkedlist"
@@ -21,6 +23,8 @@ const (
 	PROPERTY_NAME_TURMS_SERVICE_HOME    = "GURMS_SERVICE_HOME"
 	SERVER_TYPE_UNKNOWN                 = "unknown"
 )
+
+var once sync.Once
 
 var loggerlayout *layout.GurmsTemplateLayout
 
@@ -38,7 +42,23 @@ var defaultConsoleAppender appender.Appender
 
 var logprocessor LogProcessor
 
-// use sync once?
+func Loggerfactory(runWithTests bool,
+	nodeType node.NodeType,
+	nodeId string,
+	properties logging.LoggingProperties) {
+	once.Do(func() {
+		initialize(runWithTests, nodeType, nodeId, properties)
+	})
+}
+
+func WaitClose(timeoutMillis int64) {
+	logprocessor.waitClose(timeoutMillis)
+}
+
+func GetLogger(name string) logger.Logger {
+	return
+}
+
 func initialize(
 	runWithTests bool,
 	nodeType node.NodeType,
@@ -79,7 +99,7 @@ func initialize(
 			int64(fileLoggingProperties.GetMaxFilesSizeMb()),
 			fileLoggingProperties.GetCompression(),
 		)
-		DEFAULT_APPENDERS[0] = fileAppender
+		DEFAULT_APPENDERS = append(DEFAULT_APPENDERS, fileAppender)
 	}
 
 	loggerlayout = layout.NewGurmsTemplateLayout(nodeType, nodeId)

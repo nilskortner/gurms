@@ -91,7 +91,7 @@ func NewRollingFileAppender(
 	if enableCompression {
 		gzipOutputStream, err = compression.NewFastGzipOutputStream("a", COMPRESSION_LEVEL, int(maxFileBytes/10))
 		if err != nil {
-			fmt.Println("Internal Logger: %s", err)
+			fmt.Println("Internal Logger: ", err)
 		}
 	}
 
@@ -102,7 +102,7 @@ func NewRollingFileAppender(
 	var files *dequeue.Dequeue
 	files, err = Visit(fileDirectory, filePrefix, fileSuffix, FILE_MIDDLE, maxFiles)
 	if err != nil {
-		fmt.Println("Internal Logger: %s", err)
+		fmt.Println("Internal Logger: ", err)
 	}
 
 	var nextIndex int64
@@ -133,12 +133,31 @@ func NewRollingFileAppender(
 	return rfa
 }
 
-func (r *RollingFileAppender) Append(logrecord.LogRecord) int {
-
+func (r *RollingFileAppender) Append(record logrecord.LogRecord) int {
+	if r.needRoll(record) {
+		roll()
+	}
+	bytes := r.channelAppender.Append(record)
+	r.nextFileBytes += int64(bytes)
+	return bytes
 }
 
 func (r *RollingFileAppender) GetLevel() loglevel.LogLevel {
 	return r.channelAppender.GetLevel()
+}
+
+func (r *RollingFileAppender) needRoll(record logrecord.LogRecord) bool {
+	return record.Timestamp() >= r.nextDay || r.nextFileBytes >= r.maxFilesBytes
+}
+
+func (r *RollingFileAppender) roll() {
+	cleanFilesUntilSpaceEnough()
+	closeCurrentFileChannel()
+	if r.enableCompression {
+		compress()
+	}
+	r.openNewFile(true)
+	cleanExceededFiles
 }
 
 func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
@@ -170,8 +189,8 @@ func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 	}
 	var fileName string
 	var filePath string
-	nextIndexString := strconv.FormatInt(r.nextIndex, 10)
 	for {
+		nextIndexString := strconv.FormatInt(r.nextIndex, 10)
 		if lang.IsBlank(r.filePrefix) {
 			fileName = now.Format(FILE_MIDDLE) + FIELD_DELIMITER + nextIndexString + r.fileSuffix
 		} else {
@@ -181,6 +200,13 @@ func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 		var err error
 		r.channelAppender.File, err = os.OpenFile(filePath, APPEND_OPTIONS, 0666)
 		if err != nil {
+			message := "failed to open the file: " + filePath
+			if recoverFromError {
+				println("internal logger: " + message)
+				r.nextIndex++
+				time.Sleep(1 * time.Second)
+			}
+		} else {
 			break
 		}
 	}
@@ -237,12 +263,12 @@ func openFile(filePath string) (*os.File, error) {
 		err := os.MkdirAll(directory, 0755)
 		if err != nil {
 			return nil, fmt.Errorf(
-				"Internal Logger: failed to create the directory (%s) for log files: %w", directory, err)
+				"internal logger: failed to create the directory (%s) for log files: %w", directory, err)
 		}
 	}
 	file, err := os.OpenFile(filePath, APPEND_OPTIONS, 0666)
 	if err != nil {
-		return nil, fmt.Errorf("Internal Logger: failed to open the file: %s: %w", filePath, err)
+		return nil, fmt.Errorf("internal logger: failed to open the file: %s: %w", filePath, err)
 	}
 	return file, nil
 }
