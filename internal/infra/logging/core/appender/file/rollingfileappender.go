@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -146,13 +147,17 @@ func (r *RollingFileAppender) GetLevel() loglevel.LogLevel {
 	return r.channelAppender.GetLevel()
 }
 
+func (r *RollingFileAppender) Close() {
+	r.channelAppender.Close()
+}
+
 func (r *RollingFileAppender) needRoll(record logrecord.LogRecord) bool {
 	return record.Timestamp() >= r.nextDay || r.nextFileBytes >= r.maxFilesBytes
 }
 
 func (r *RollingFileAppender) roll() {
-	cleanFilesUntilSpaceEnough()
-	closeCurrentFileChannel()
+	r.cleanFilesUntilSpaceEnough()
+	closeCurrentFile()
 	if r.enableCompression {
 		compress()
 	}
@@ -271,4 +276,62 @@ func openFile(filePath string) (*os.File, error) {
 		return nil, fmt.Errorf("internal logger: failed to open the file: %s: %w", filePath, err)
 	}
 	return file, nil
+}
+
+func (r *RollingFileAppender) cleanFilesUntilSpaceEnough() {
+	file := r.fileDirectory
+	if getUsableSpace(file) > r.minUsableSpaceBytes {
+		return
+	}
+	lastElementIndex := r.files.Size() - 1
+	i := 0
+	for _, logFile := range r.files.Data() {
+		if i == lastElementIndex {
+			break
+		}
+		deleteLogFile(logFile)
+		if getUsableSpace(file) > r.minUsableSpaceBytes {
+			return
+		}
+		i++
+	}
+	fmt.Println("internal logger: freeze to wait for the space to be available")
+	for {
+		time.Sleep(1000 * time.Millisecond)
+		if getUsableSpace(file) > r.minUsableSpaceBytes {
+			break
+		}
+	}
+	fmt.Println("internal logger: the space has become available")
+}
+
+func deleteLogFile(logFile logfile.LogFile) {
+	path := logFile.GetPath()
+	archivePath := logFile.GetArchivePath()
+
+	err := os.Remove(path)
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Println("internal logger: caught an error while deleting the log file: ", err)
+	}
+	if archivePath != "" {
+		err = os.Remove(archivePath)
+		if err != nil && !os.IsNotExist(err) {
+			fmt.Println("internal logger: caught an error while deleting the log file: ", err)
+		}
+	}
+}
+
+func getUsableSpace(path string) int64 {
+	var stat syscall.Statfs_t
+
+	// Get file system statistics using Statfs
+	err := syscall.Statfs(path, &stat)
+	if err != nil {
+		return 0
+	}
+
+	// Available blocks * size per block = available space in bytes
+	usableSpace := int64(stat.Bavail) * stat.Bsize
+
+	return usableSpace
 }

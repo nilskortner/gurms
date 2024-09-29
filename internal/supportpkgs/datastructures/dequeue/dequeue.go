@@ -22,3 +22,11 @@ func (d *Dequeue) PeekLast() (logfile.LogFile, bool) {
 func (d *Dequeue) Add(file logfile.LogFile) {
 	d.data = append(d.data, file)
 }
+
+func (d *Dequeue) Size() int {
+	return len(d.data)
+}
+
+func (d *Dequeue) Data() []logfile.LogFile {
+	return d.data
+}

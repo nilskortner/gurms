@@ -19,6 +19,13 @@ func NewChannelAppender(level loglevel.LogLevel) *ChannelAppender {
 	}
 }
 
+func (c *ChannelAppender) Close() {
+	err := c.File.Close()
+	if err != nil {
+		fmt.Println("internal logger: channelappender.close() ", err)
+	}
+}
+
 func (c *ChannelAppender) GetLevel() loglevel.LogLevel {
 	return c.appender.GetLevel()
 }
