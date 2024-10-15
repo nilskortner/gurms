@@ -36,7 +36,10 @@ func (c *ChannelAppender) Append(record logrecord.LogRecord) int {
 	}
 	buffer := record.GetBuffer()
 
-	fmt.Println(buffer.String())
+	n, err := c.File.Write(buffer.Bytes())
+	if err != nil {
+		fmt.Println("internal logger: couldnt write to File: %w", err)
+	}
 
-	return buffer.Len()
+	return n
 }

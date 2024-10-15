@@ -92,18 +92,18 @@ func NewRollingFileAppender(
 	if enableCompression {
 		gzipOutputStream, err = compression.NewFastGzipOutputStream("a", COMPRESSION_LEVEL, int(maxFileBytes/10))
 		if err != nil {
-			fmt.Println("Internal Logger: ", err)
+			fmt.Println("internal Logger: ", err)
 		}
 	}
 
 	err = os.MkdirAll(fileDirectory, 0755)
 	if err != nil {
-		fmt.Println("Internal Logger: Failed to create the directory ("+fileDirectory+")for log files", err)
+		fmt.Println("internal Logger: Failed to create the directory ("+fileDirectory+")for log files", err)
 	}
 	var files *dequeue.Dequeue
 	files, err = Visit(fileDirectory, filePrefix, fileSuffix, FILE_MIDDLE, maxFiles)
 	if err != nil {
-		fmt.Println("Internal Logger: ", err)
+		fmt.Println("internal Logger: ", err)
 	}
 
 	var nextIndex int64
@@ -136,7 +136,7 @@ func NewRollingFileAppender(
 
 func (r *RollingFileAppender) Append(record logrecord.LogRecord) int {
 	if r.needRoll(record) {
-		roll()
+		r.roll()
 	}
 	bytes := r.channelAppender.Append(record)
 	r.nextFileBytes += int64(bytes)
@@ -157,12 +157,12 @@ func (r *RollingFileAppender) needRoll(record logrecord.LogRecord) bool {
 
 func (r *RollingFileAppender) roll() {
 	r.cleanFilesUntilSpaceEnough()
-	closeCurrentFile()
-	if r.enableCompression {
-		compress()
-	}
+	r.closeCurrentFile()
+	//if r.enableCompression {
+	//compress()
+	//}
 	r.openNewFile(true)
-	cleanExceededFiles
+	r.cleanExceededFiles()
 }
 
 func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
@@ -175,21 +175,21 @@ func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 			if os.IsExist(err) {
 				if info, err := os.Stat(dir); err == nil && !info.IsDir() {
 					if err := os.Remove(dir); err != nil {
-						fmt.Println("Internal Logger: Failed to delete file:", err)
+						fmt.Println("internal Logger: Failed to delete file:", err)
 					}
 					err = os.MkdirAll(dir, os.ModePerm)
 					if err != nil {
-						fmt.Println("Internal Logger: Failed to create directory after deleting file:", err)
+						fmt.Println("internal Logger: Failed to create directory after deleting file:", err)
 					}
 				}
 			} else {
-				fmt.Println("Internal Logger: Failed to create directory:", err)
+				fmt.Println("internal Logger: Failed to create directory:", err)
 			}
 		}
 	} else {
 		err := os.MkdirAll(r.fileDirectory, 0755)
 		if err != nil {
-			fmt.Println("Internal Logger: Error while creating the directory: "+dir, err)
+			fmt.Println("internal Logger: Error while creating the directory: "+dir, err)
 		}
 	}
 	var fileName string
@@ -226,7 +226,7 @@ func (r *RollingFileAppender) openNewFile(recoverFromError bool) {
 
 	fileInfo, err := r.channelAppender.File.Stat()
 	if err != nil {
-		fmt.Println("Internal Logger: failed to get file stats:"+filePath, err)
+		fmt.Println("internal Logger: failed to get file stats:"+filePath, err)
 		if recoverFromError {
 			fmt.Println(". Fallback to 0")
 			r.nextFileBytes = 0
@@ -248,13 +248,13 @@ func (r *RollingFileAppender) openExistingFile(existingFile logfile.LogFile) {
 	var err error
 	r.channelAppender.File, err = openFile(filePath)
 	if err != nil {
-		fmt.Println("Internal Logger: failed to open file:", err)
+		fmt.Println("internal Logger: failed to open file:", err)
 	}
 	r.currentFile = existingFile
 
 	fileInfo, err := r.channelAppender.File.Stat()
 	if err != nil {
-		fmt.Println("Internal Logger: failed to get file stats:"+filePath, err)
+		fmt.Println("internal Logger: failed to get file stats:"+filePath, err)
 	} else {
 		r.nextFileBytes = fileInfo.Size()
 	}
@@ -276,6 +276,25 @@ func openFile(filePath string) (*os.File, error) {
 		return nil, fmt.Errorf("internal logger: failed to open the file: %s: %w", filePath, err)
 	}
 	return file, nil
+}
+
+func (r *RollingFileAppender) closeCurrentFile() {
+	err := r.channelAppender.File.Close()
+	if err != nil {
+		fmt.Println("internal logger: couldnt close File: %w", err)
+	}
+}
+
+func (r *RollingFileAppender) cleanExceededFiles() {
+	for r.files.Size() > r.maxFiles {
+		file, err := r.files.Remove()
+		if err != nil {
+			fmt.Println("internal logger: %w", err)
+		}
+		if r.maxFiles > 0 {
+			deleteLogFile(file)
+		}
+	}
 }
 
 func (r *RollingFileAppender) cleanFilesUntilSpaceEnough() {

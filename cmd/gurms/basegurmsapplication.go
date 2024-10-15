@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -38,10 +37,6 @@ func (app *BaseApplication) setDefaults() {
 
 // validateEnv checks for required environment configurations
 func (app *BaseApplication) validateEnv() {
-	if runtime.Version() < "go1.15" {
-		log.Fatalf("The current Go runtime %s is not compatible with the application", runtime.Version())
-	}
-	// Add other validation checks if necessary
 }
 
 // setupLogging initializes the logger

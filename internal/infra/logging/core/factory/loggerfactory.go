@@ -117,3 +117,7 @@ func getFilePath(path string) string {
 	path = strings.Replace(path, "@SERVICE_TYPE_NAME", serverTypeName, -1)
 	return path
 }
+
+func bindContext(context GurmsApplicationContext) {
+
+}

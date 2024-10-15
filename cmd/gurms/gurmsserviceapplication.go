@@ -5,24 +5,24 @@ import (
 )
 
 // TurmsServiceApplication extends BaseApplication
-type TurmsServiceApplication struct {
+type GurmsServiceApplication struct {
 	*BaseApplication
 }
 
 // NewTurmsServiceApplication creates a new TurmsServiceApplication
-func NewTurmsServiceApplication() *TurmsServiceApplication {
+func NewGurmsServiceApplication() *GurmsServiceApplication {
 	baseApp := NewBaseApplication()
-	return &TurmsServiceApplication{BaseApplication: baseApp}
+	return &GurmsServiceApplication{BaseApplication: baseApp}
 }
 
 // Run overrides the Run method to provide specific functionality
-func (app *TurmsServiceApplication) Run() {
+func (app *GurmsServiceApplication) Run() {
 	app.BaseApplication.Run()
 	log.Println("Running TurmsServiceApplication")
 }
 
 func main() {
-	app := NewTurmsServiceApplication()
+	app := NewGurmsServiceApplication()
 	app.Init()
 	defer app.handleShutdown()
 

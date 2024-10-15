@@ -1,6 +1,7 @@
 package dequeue
 
 import (
+	"fmt"
 	"gurms/internal/infra/logging/core/appender/file/logfile"
 )
 
@@ -21,6 +22,15 @@ func (d *Dequeue) PeekLast() (logfile.LogFile, bool) {
 
 func (d *Dequeue) Add(file logfile.LogFile) {
 	d.data = append(d.data, file)
+}
+
+func (d *Dequeue) Remove() (logfile.LogFile, error) {
+	if len(d.data) == 0 {
+		return logfile.LogFile{}, fmt.Errorf("can not remove. dequeue is empty")
+	}
+	file := d.data[0]
+	d.data = d.data[1:]
+	return file, nil
 }
 
 func (d *Dequeue) Size() int {
