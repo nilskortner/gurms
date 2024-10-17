@@ -3,12 +3,13 @@ package loglevel
 type LogLevel int
 
 const (
-	TRACE LogLevel = iota
+	TRACE LogLevel = iota - 1
 	DEBUG
 	INFO
 	WARN
 	ERROR
 	FATAL
+	PANIC
 )
 
 func (level LogLevel) IsLoggable(enabledLevel LogLevel) bool {
@@ -16,7 +17,7 @@ func (level LogLevel) IsLoggable(enabledLevel LogLevel) bool {
 }
 
 func (level LogLevel) IsErrorOrFatal() bool {
-	return level == ERROR || level == FATAL
+	return level == ERROR || level == FATAL || level == PANIC
 }
 
 func (level LogLevel) String() string {
@@ -33,6 +34,8 @@ func (level LogLevel) String() string {
 		return "ERROR"
 	case FATAL:
 		return "FATAL"
+	case PANIC:
+		return "PANIC"
 	default:
 		return "UNKNOWN"
 	}

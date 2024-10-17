@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gurms/internal/infra/bufferpool"
-	"gurms/internal/infra/cluster/node"
+	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/infraerror"
 	"gurms/internal/infra/lang"
 	"gurms/internal/infra/logging/core/model/loglevel"
@@ -52,15 +52,15 @@ type GurmsTemplateLayout struct {
 	nodeId   []byte
 }
 
-func NewGurmsTemplateLayout(nodeType node.NodeType, nodeId string) *GurmsTemplateLayout {
+func NewGurmsTemplateLayout(nodeType nodetype.NodeType, nodeId string) *GurmsTemplateLayout {
 	var typ int
 	noteId := nodeId
 	switch nodeType {
-	case node.AI_SERVING:
+	case nodetype.AI_SERVING:
 		typ = NODE_TYPE_AI_SERVING
-	case node.GATEWAY:
+	case nodetype.GATEWAY:
 		typ = NODE_TYPE_GATEWAY
-	case node.SERVICE:
+	case nodetype.SERVICE:
 		typ = NODE_TYPE_SERVICE
 	default:
 		typ = NODE_TYPE_UNKNOWN

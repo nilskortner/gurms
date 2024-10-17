@@ -1,7 +1,7 @@
 package factory
 
 import (
-	"gurms/internal/infra/cluster/node"
+	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/logging/core/appender"
 	"gurms/internal/infra/logging/core/appender/file"
 	"gurms/internal/infra/logging/core/layout"
@@ -30,7 +30,7 @@ var loggerlayout *layout.GurmsTemplateLayout
 
 var initialized bool
 
-var ALL_APPENDERS copyonwriteslice.CopyOnWriteSlice[appender.Appender]
+var ALL_APPENDERS = copyonwriteslice.NewCopyOnWriteSlice[appender.Appender]()
 var DEFAULT_APPENDERS = make([]appender.Appender, 0, 2)
 var Queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]
 var UNINITIALIZED_LOGGERS linkedlist.LinkedList
@@ -43,11 +43,11 @@ var defaultConsoleAppender appender.Appender
 var logprocessor LogProcessor
 
 func Loggerfactory(runWithTests bool,
-	nodeType node.NodeType,
 	nodeId string,
+	nodeType nodetype.NodeType,
 	properties logging.LoggingProperties) {
 	once.Do(func() {
-		initialize(runWithTests, nodeType, nodeId, properties)
+		initialize(runWithTests, nodeId, nodeType, properties)
 	})
 }
 
@@ -56,13 +56,14 @@ func WaitClose(timeoutMillis int64) {
 }
 
 func GetLogger(name string) logger.Logger {
-	return
+	options := logger.NewLoggerOptions(name)
+	return getLogger(options)
 }
 
 func initialize(
 	runWithTests bool,
-	nodeType node.NodeType,
 	nodeId string,
+	nodeType nodetype.NodeType,
 	properties logging.LoggingProperties) {
 	if initialized {
 		return
@@ -80,7 +81,7 @@ func initialize(
 	}
 	serverTypeName = nodeType.GetId()
 	consoleLoggingProperties := properties.GetConsole()
-	fileLoggingProperties := properties.GetFile()
+	fileLoggingProperties = properties.GetFile()
 	if consoleLoggingProperties.IsEnabled() {
 		var consoleAppender appender.Appender
 		if runWithTests {
@@ -118,6 +119,29 @@ func getFilePath(path string) string {
 	return path
 }
 
-func bindContext(context GurmsApplicationContext) {
-
+func getLogger(options *logger.LoggerOptions) logger.Logger {
+	loggerName := options.GetName()
+	filePath := options.GetPath()
+	appenders := make([]appender.Appender, 2)
+	if filePath != "" {
+		filePath = getFilePath(filePath)
+		level := options.GetLevel()
+		if level == -1 {
+			level = fileLoggingProperties.GetLevel()
+		}
+		appender := file.NewRollingFileAppender(
+			level,
+			filePath,
+			fileLoggingProperties.GetMaxFiles(),
+			int64(fileLoggingProperties.GetMaxFilesSizeMb()),
+			fileLoggingProperties.GetCompression())
+		appenders = append(appenders, appender)
+		ALL_APPENDERS.Add(appender)
+		if defaultConsoleAppender != nil {
+			appenders = append(appenders, defaultConsoleAppender)
+		}
+	} else {
+		appenders = DEFAULT_APPENDERS
+	}
+	return logger.NewAsyncLogger(loggerName, options.IsShouldParse(), appenders, loggerlayout, Queue)
 }

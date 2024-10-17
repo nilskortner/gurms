@@ -4,12 +4,12 @@ import (
 	"sync"
 )
 
-type CopyOnWriteSlice[T any] struct {
-	mu   sync.RWMutex
+type CopyOnWriteSlice[T comparable] struct {
 	data []T
+	mu   sync.RWMutex
 }
 
-func NewCopyOnWriteSlice[T any]() *CopyOnWriteSlice[T] {
+func NewCopyOnWriteSlice[T comparable]() *CopyOnWriteSlice[T] {
 	return &CopyOnWriteSlice[T]{}
 }
 
@@ -17,16 +17,17 @@ func (c *CopyOnWriteSlice[T]) Add(value T) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	length := len(c.data)
-	newData := make([]T, length+1)
-	copy(newData, c.data)
-	newData[length] = value
-	c.data = newData
+	new := make([]T, length+1)
+	copy(new, c.data)
+	new[length] = value
+	c.data = new
 }
 
 func (c *CopyOnWriteSlice[T]) List() []T {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	newData := make([]T, len(c.data))
-	copy(newData, c.data)
-	return newData
+
+	copied := make([]T, len(c.data))
+	copy(copied, c.data)
+	return copied
 }

@@ -3,18 +3,21 @@ package main
 import (
 	"log"
 	"os"
+	"runtime"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	_ "gurms/internal/infra/collection"
 	_ "gurms/internal/infra/lang"
-)
+	"gurms/internal/infra/logging/core/factory"
+	"gurms/internal/infra/property"
 
-var logger = logrus.New()
+	"github.com/rs/zerolog"
+)
 
 // BaseApplication holds common setup and initialization
 type BaseApplication struct{}
+
+var logger zerolog.Logger
 
 // NewBaseApplication creates a new BaseApplication
 func NewBaseApplication() *BaseApplication {
@@ -22,9 +25,9 @@ func NewBaseApplication() *BaseApplication {
 }
 
 // Init sets up the environment and logging
-func (app *BaseApplication) Init() {
+func (app *BaseApplication) init() {
 	app.setDefaults()
-	app.validateEnv()
+	app.initEnv()
 	app.setupLogging()
 }
 
@@ -36,26 +39,35 @@ func (app *BaseApplication) setDefaults() {
 }
 
 // validateEnv checks for required environment configurations
-func (app *BaseApplication) validateEnv() {
+func (app *BaseApplication) initEnv() {
+	var nodeId string = property.GURMS_CLUSTER_NODE_ID
+
+	factory.Loggerfactory(false, nodeId, nodeType, loggingProperties)
 }
 
 // setupLogging initializes the logger
 func (app *BaseApplication) setupLogging() {
-	logger.Formatter = &logrus.TextFormatter{
-		FullTimestamp: true,
-	}
+	logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 }
 
 // Run starts the application
 func (app *BaseApplication) Run() {
 	log.Println("Running BaseApplication")
+	defer app.handlePanic()
+
 }
 
 // handleShutdown ensures graceful shutdown
-func (app *BaseApplication) handleShutdown() {
+func (app *BaseApplication) handlePanic() {
 	if r := recover(); r != nil {
-		logger.Errorf("Application panicked: %v", r)
+		stack := make([]byte, 1024)
+		runtime.Stack(stack, false)
+		logger.Error().
+			Str("time", time.Now().Format(time.RFC3339)).
+			Interface("panic", r).
+			Str("stack", string(stack)).
+			Msg("Recovered from panic")
+		logger.Info().Msg("Application shutting down gracefully")
 		os.Exit(1)
 	}
-	logger.Info("Application shutting down gracefully")
 }

@@ -1,4 +1,4 @@
-package node
+package nodetype
 
 type NodeType int
 
