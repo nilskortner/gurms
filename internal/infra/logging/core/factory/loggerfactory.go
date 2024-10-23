@@ -37,7 +37,7 @@ var UNINITIALIZED_LOGGERS linkedlist.LinkedList
 
 var homeDir string
 var serverTypeName string
-var fileLoggingProperties logging.FileLoggingProperties
+var fileLoggingProperties *logging.FileLoggingProperties
 var defaultConsoleAppender appender.Appender
 
 var logprocessor LogProcessor
@@ -45,7 +45,7 @@ var logprocessor LogProcessor
 func Loggerfactory(runWithTests bool,
 	nodeId string,
 	nodeType nodetype.NodeType,
-	properties logging.LoggingProperties) {
+	properties *logging.LoggingProperties) {
 	once.Do(func() {
 		initialize(runWithTests, nodeId, nodeType, properties)
 	})
@@ -64,7 +64,7 @@ func initialize(
 	runWithTests bool,
 	nodeId string,
 	nodeType nodetype.NodeType,
-	properties logging.LoggingProperties) {
+	properties *logging.LoggingProperties) {
 	if initialized {
 		return
 	}

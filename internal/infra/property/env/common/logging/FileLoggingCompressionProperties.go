@@ -4,9 +4,9 @@ type FileLoggingCompressionProperties struct {
 	enabled bool
 }
 
-func NewFileLoggingCompressionProperties() FileLoggingCompressionProperties {
-	return FileLoggingCompressionProperties{
-		enabled: DEFAULT_VALUE_ENABLED,
+func NewFileLoggingCompressionProperties() *FileLoggingCompressionProperties {
+	return &FileLoggingCompressionProperties{
+		enabled: FILE_DEFAULT_VALUE_ENABLED,
 	}
 }
 

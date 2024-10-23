@@ -1,30 +1,28 @@
 package main
 
 import (
+	"gurms/internal/infra/cluster/node/nodetype"
 	"log"
 )
 
-// TurmsServiceApplication extends BaseApplication
 type GurmsServiceApplication struct {
 	*BaseApplication
 }
 
 // NewTurmsServiceApplication creates a new TurmsServiceApplication
 func NewGurmsServiceApplication() *GurmsServiceApplication {
-	baseApp := NewBaseApplication()
+	baseApp := NewBaseApplication(nodetype.SERVICE)
 	return &GurmsServiceApplication{BaseApplication: baseApp}
 }
 
 // Run overrides the Run method to provide specific functionality
-func (app *GurmsServiceApplication) Run() {
+func (app *GurmsServiceApplication) run() {
 	app.BaseApplication.Run()
-	log.Println("Running TurmsServiceApplication")
+	log.Println("Running GurmsServiceApplication")
 }
 
 func main() {
 	app := NewGurmsServiceApplication()
-	app.Init()
-	defer app.handleShutdown()
 
-	app.Run()
+	app.run()
 }

@@ -5,6 +5,8 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/cluster"
+	"regexp"
+	"strconv"
 )
 
 var nodeLogger logger.Logger = factory.GetLogger("Node")
@@ -12,7 +14,7 @@ var nodeLogger logger.Logger = factory.GetLogger("Node")
 var nodeId string
 var nodeType nodetype.NodeType
 
-func initNodeId(id string) string {
+func InitNodeId(id string) string {
 	if nodeId != "" {
 		return nodeId
 	}
@@ -23,10 +25,13 @@ func initNodeId(id string) string {
 			id)
 	} else {
 		if len(id) > cluster.NODE_ID_MAX_LENGTH {
-
+			panic("length of node id must be less than or equal to " + strconv.Itoa(cluster.NODE_ID_MAX_LENGTH))
 		}
-		if !id.matches() {
-
+		matched, err := regexp.MatchString("^[a-zA-Z_]\\w*$", id)
+		if !matched {
+			panic("The node ID must start with a letter or underscore, " +
+				"and match zero or more of characters [a-zA-Z0-9_] after the beginning" +
+				err.Error())
 		}
 	}
 	nodeId = id

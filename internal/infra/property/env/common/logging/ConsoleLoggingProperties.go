@@ -2,15 +2,18 @@ package logging
 
 import "gurms/internal/infra/logging/core/model/loglevel"
 
+const CONSOLE_DEFAULT_VALUE_ENABLED = false
+const CONSOLE_DEFAULT_VALUE_LEVEL loglevel.LogLevel = 1
+
 type ConsoleLoggingProperties struct {
 	enabled bool
 	level   loglevel.LogLevel
 }
 
-func NewConsoleLoggingProperties() *ConsoleLoggingProperties {
+func NewConsoleLoggingProperties(enabled bool, level loglevel.LogLevel) *ConsoleLoggingProperties {
 	return &ConsoleLoggingProperties{
-		enabled: false,
-		level:   2,
+		enabled: enabled,
+		level:   level,
 	}
 }
 

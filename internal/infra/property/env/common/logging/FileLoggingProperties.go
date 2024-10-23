@@ -4,13 +4,12 @@ import (
 	"gurms/internal/infra/logging/core/model/loglevel"
 )
 
-const DEFAULT_VALUE_ENABLED = true
+const FILE_DEFAULT_VALUE_ENABLED = true
+const FILE_DEFAULT_VALUE_LEVEL loglevel.LogLevel = 1
 
-var DEFAULT_VALUE_LEVEL loglevel.LogLevel = 2
-
-const DEFAULT_VALUE_FILE_PATH = "@HOME/log/.log"
-const DEFAULT_VALUE_MAX_FILES = 320
-const DEFAULT_VALUE_FILE_SIZE_MB = 32
+const FILE_DEFAULT_VALUE_FILE_PATH = "@HOME/log/.log"
+const FILE_DEFAULT_VALUE_MAX_FILES = 320
+const FILE_DEFAULT_VALUE_FILE_SIZE_MB = 32
 
 type FileLoggingProperties struct {
 	enabled       bool
@@ -18,16 +17,22 @@ type FileLoggingProperties struct {
 	filePath      string
 	maxFiles      int
 	maxFileSizeMb int
-	compression   FileLoggingCompressionProperties
+	compression   *FileLoggingCompressionProperties
 }
 
-func NewFileLoggingPropertiesDefault() *FileLoggingProperties {
+func NewFileLoggingProperties(
+	enabled bool,
+	level loglevel.LogLevel,
+	filePath string,
+	maxFiles int,
+	maxFileSizeMb int,
+	compression *FileLoggingCompressionProperties) *FileLoggingProperties {
 	return &FileLoggingProperties{
-		enabled:       DEFAULT_VALUE_ENABLED,
-		level:         DEFAULT_VALUE_LEVEL,
-		filePath:      DEFAULT_VALUE_FILE_PATH,
-		maxFiles:      DEFAULT_VALUE_MAX_FILES,
-		maxFileSizeMb: DEFAULT_VALUE_FILE_SIZE_MB,
+		enabled:       FILE_DEFAULT_VALUE_ENABLED,
+		level:         FILE_DEFAULT_VALUE_LEVEL,
+		filePath:      FILE_DEFAULT_VALUE_FILE_PATH,
+		maxFiles:      FILE_DEFAULT_VALUE_MAX_FILES,
+		maxFileSizeMb: FILE_DEFAULT_VALUE_FILE_SIZE_MB,
 		compression:   NewFileLoggingCompressionProperties(),
 	}
 }
