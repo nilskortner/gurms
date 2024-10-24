@@ -43,8 +43,8 @@ func (app *BaseApplication) init() {
 
 func readConfigFile() {
 	viper.SetConfigName("config")         // name of config file (without extension)
-	viper.SetConfigType("yaml")     h      // REQUIRED if the config file does not have the extension in the name
-	viper.AddConfigPath("/etc/appname/")  // path to look for the config file in
+	viper.SetConfigType("yaml")           // REQUIRED if the config file does not have the extension in the name
+	viper.AddConfigPath("configs")        // path to look for the config file in
 	viper.AddConfigPath("$HOME/.appname") // call multiple times to add many search paths
 	viper.AddConfigPath(".")              // optionally look for config in the working directory
 	err := viper.ReadInConfig()           // Find and read the config file
@@ -60,32 +60,18 @@ func (app *BaseApplication) setDefaults() {
 	// Set other system properties as needed
 }
 
-func (app *BaseApplication) initEnv() {
-	var nodeId string = node.InitNodeId(property.GURMS_CLUSTER_NODE_ID)
-
-	loggingProperties := configureContextForLogging()
-
-	factory.Loggerfactory(false, nodeId, app.nodeType, loggingProperties)
-}
-
-func configureContextForLogging() *logging.LoggingProperties {
-	var enabled bool
-	if viper.IsSet(property.GURMS_LOGGING_CONSOLE_ENABLED) {
-		enabled = viper.GetBool(property.GURMS_LOGGING_CONSOLE_ENABLED)
-	} else {
-		enabled = logging.CONSOLE_DEFAULT_VALUE_ENABLED
-	}
-	var level loglevel.LogLevel
-	consoleLoggingProperties := logging.NewConsoleLoggingProperties(enabled)
-
-	fileLoggingProperties := logging.NewFileLoggingProperties()
-
-	return logging.NewLoggingProperties(consoleLoggingProperties, fileLoggingProperties)
-}
-
 // setupLogging initializes the logger
 func (app *BaseApplication) setupLogging() {
 	logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+}
+
+func (app *BaseApplication) initEnv() {
+	// AsyncLoggerFactoryInit
+	var nodeId string = node.InitNodeId(viper.GetString(property.GURMS_CLUSTER_NODE_ID))
+	loggingProperties := configureContextForLogging()
+	factory.Loggerfactory(false, nodeId, app.nodeType, loggingProperties)
+
+	property.InitGurmsProperties()
 }
 
 // Run starts the application
@@ -111,4 +97,58 @@ func (app *BaseApplication) handlePanic() {
 		logger.Info().Msg("Application shutting down gracefully")
 		os.Exit(1)
 	}
+}
+
+func configureContextForLogging() *logging.LoggingProperties {
+	var enabled bool
+	if viper.IsSet(property.GURMS_LOGGING_CONSOLE_ENABLED) {
+		enabled = viper.GetBool(property.GURMS_LOGGING_CONSOLE_ENABLED)
+	} else {
+		enabled = logging.CONSOLE_DEFAULT_VALUE_ENABLED
+	}
+	var level loglevel.LogLevel
+	if viper.IsSet(property.GURMS_LOGGING_CONSOLE_LEVEL) {
+		level = loglevel.LogLevel(viper.GetInt(property.GURMS_LOGGING_CONSOLE_LEVEL))
+	} else {
+		level = logging.CONSOLE_DEFAULT_VALUE_LEVEL
+	}
+	consoleLoggingProperties := logging.NewConsoleLoggingProperties(enabled, level)
+
+	if viper.IsSet(property.GURMS_LOGGING_FILE_ENABLED) {
+		enabled = viper.GetBool(property.GURMS_LOGGING_FILE_ENABLED)
+	} else {
+		enabled = logging.FILE_DEFAULT_VALUE_ENABLED
+	}
+	if viper.IsSet(property.GURMS_LOGGING_FILE_LEVEL) {
+		level = loglevel.LogLevel(viper.GetInt(property.GURMS_LOGGING_FILE_LEVEL))
+	} else {
+		level = logging.FILE_DEFAULT_VALUE_LEVEL
+	}
+	var path string
+	if viper.IsSet(property.GURMS_LOGGING_FILE_PATH) {
+		path = viper.GetString(property.GURMS_LOGGING_FILE_PATH)
+	} else {
+		path = logging.FILE_DEFAULT_VALUE_FILE_PATH
+	}
+	var maxFiles int
+	if viper.IsSet(property.GURMS_LOGGING_FILE_MAX_FILES) {
+		maxFiles = viper.GetInt(property.GURMS_LOGGING_FILE_MAX_FILES)
+	} else {
+		maxFiles = logging.FILE_DEFAULT_VALUE_MAX_FILES
+	}
+	var fileSizeMb int
+	if viper.IsSet(property.GURMS_LOGGING_FILE_MAX_FILE_SIZE_MB) {
+		fileSizeMb = viper.GetInt(property.GURMS_LOGGING_FILE_MAX_FILE_SIZE_MB)
+	} else {
+		fileSizeMb = logging.FILE_DEFAULT_VALUE_FILE_SIZE_MB
+	}
+	var compression bool
+	if viper.IsSet(property.GURMS_LOGGING_FILE_COMPRESSION_ENABLED) {
+		compression = viper.GetBool(property.GURMS_LOGGING_FILE_COMPRESSION_ENABLED)
+	} else {
+		compression = logging.FILE_DEFAULT_VALUE_COMPRESSION_ENABLED
+	}
+	fileLoggingProperties := logging.NewFileLoggingProperties(enabled, level, path, maxFiles, fileSizeMb, compression)
+
+	return logging.NewLoggingProperties(consoleLoggingProperties, fileLoggingProperties)
 }

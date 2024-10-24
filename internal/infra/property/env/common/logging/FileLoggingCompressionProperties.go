@@ -1,12 +1,14 @@
 package logging
 
+const FILE_DEFAULT_VALUE_COMPRESSION_ENABLED = false
+
 type FileLoggingCompressionProperties struct {
 	enabled bool
 }
 
 func NewFileLoggingCompressionProperties() *FileLoggingCompressionProperties {
 	return &FileLoggingCompressionProperties{
-		enabled: FILE_DEFAULT_VALUE_ENABLED,
+		enabled: FILE_DEFAULT_VALUE_COMPRESSION_ENABLED,
 	}
 }
 

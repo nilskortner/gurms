@@ -17,7 +17,7 @@ type FileLoggingProperties struct {
 	filePath      string
 	maxFiles      int
 	maxFileSizeMb int
-	compression   *FileLoggingCompressionProperties
+	compression   bool
 }
 
 func NewFileLoggingProperties(
@@ -26,14 +26,14 @@ func NewFileLoggingProperties(
 	filePath string,
 	maxFiles int,
 	maxFileSizeMb int,
-	compression *FileLoggingCompressionProperties) *FileLoggingProperties {
+	compression bool) *FileLoggingProperties {
 	return &FileLoggingProperties{
-		enabled:       FILE_DEFAULT_VALUE_ENABLED,
-		level:         FILE_DEFAULT_VALUE_LEVEL,
-		filePath:      FILE_DEFAULT_VALUE_FILE_PATH,
-		maxFiles:      FILE_DEFAULT_VALUE_MAX_FILES,
-		maxFileSizeMb: FILE_DEFAULT_VALUE_FILE_SIZE_MB,
-		compression:   NewFileLoggingCompressionProperties(),
+		enabled:       enabled,
+		level:         level,
+		filePath:      filePath,
+		maxFiles:      maxFiles,
+		maxFileSizeMb: maxFileSizeMb,
+		compression:   compression,
 	}
 }
 
@@ -58,5 +58,5 @@ func (f *FileLoggingProperties) GetMaxFilesSizeMb() int {
 }
 
 func (f *FileLoggingProperties) GetCompression() bool {
-	return f.compression.IsEnabled()
+	return f.compression
 }
