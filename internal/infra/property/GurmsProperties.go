@@ -1,7 +1,9 @@
 package property
 
 import (
-	c "gurms/internal/infra/property/env/common/cluster"
+	"gurms/internal/infra/property/env/common"
+	"gurms/internal/infra/property/env/common/cluster"
+	"gurms/internal/infra/property/env/common/healthcheck"
 )
 
 const PROPERTIES_PREFIX = "gurms"
@@ -10,9 +12,9 @@ const SCHEMA_VERSION = 1
 
 type GurmsProperties struct {
 	// Common
-	cluster        *c.ClusterProperties
-	flightRecorder *FlightRecorderProperties
-	healthCheck    *HealthCheckProperties
+	cluster        *cluster.ClusterProperties
+	flightRecorder *common.FlightRecorderProperties
+	healthCheck    *healthcheck.HealthCheckProperties
 	ip             *IpProperties
 	location       *LocationProperties
 	logging        *LoggingProperties

@@ -1,10 +1,13 @@
 package connection
 
 type ConnectionProperties struct {
-	client *ConnectionCLientProperties
+	client *ConnectionClientProperties
 	server *ConnectionServerProperties
 }
 
 func InitConnectionProperties() *ConnectionProperties {
-	return &ConnectionProperties{}
+	return &ConnectionProperties{
+		client: NewConnectionClientProperties(),
+		server: NewConnectionServerProperties(),
+	}
 }
