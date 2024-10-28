@@ -11,9 +11,9 @@ type ClusterProperties struct {
 	grpc        *GrpcProperties
 }
 
-func NewClusterProperties(id string) *ClusterProperties {
+func NewClusterProperties() *ClusterProperties {
 	return &ClusterProperties{
-		id:          id,
+		id:          "gurms",
 		node:        InitNodeProperties(),
 		connection:  connection.InitConnectionProperties(),
 		discovery:   NewDiscoveryProperties(),
