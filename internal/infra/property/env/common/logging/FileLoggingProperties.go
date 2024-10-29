@@ -2,10 +2,13 @@ package logging
 
 import (
 	"gurms/internal/infra/logging/core/model/loglevel"
+	"gurms/internal/infra/property/constants"
+
+	"github.com/spf13/viper"
 )
 
 const FILE_DEFAULT_VALUE_ENABLED = true
-const FILE_DEFAULT_VALUE_LEVEL loglevel.LogLevel = 1
+const FILE_DEFAULT_VALUE_LEVEL int = 1
 
 const FILE_DEFAULT_VALUE_FILE_PATH = "@HOME/log/.log"
 const FILE_DEFAULT_VALUE_MAX_FILES = 320
@@ -17,23 +20,54 @@ type FileLoggingProperties struct {
 	filePath      string
 	maxFiles      int
 	maxFileSizeMb int
-	compression   bool
+	compression   *FileLoggingCompressionProperties
 }
 
-func NewFileLoggingProperties(
-	enabled bool,
-	level loglevel.LogLevel,
-	filePath string,
-	maxFiles int,
-	maxFileSizeMb int,
-	compression bool) *FileLoggingProperties {
+func NewFileLoggingProperties() *FileLoggingProperties {
+	var enabled bool
+	if viper.IsSet(constants.GURMS_LOGGING_FILE_ENABLED) {
+		enabled = viper.GetBool(constants.GURMS_LOGGING_FILE_ENABLED)
+	} else {
+		enabled = FILE_DEFAULT_VALUE_ENABLED
+	}
+	var level int
+	if viper.IsSet(constants.GURMS_LOGGING_FILE_LEVEL) {
+		level = viper.GetInt(constants.GURMS_LOGGING_FILE_LEVEL)
+	} else {
+		level = FILE_DEFAULT_VALUE_LEVEL
+	}
+	var path string
+	if viper.IsSet(constants.GURMS_LOGGING_FILE_PATH) {
+		path = viper.GetString(constants.GURMS_LOGGING_FILE_PATH)
+	} else {
+		path = FILE_DEFAULT_VALUE_FILE_PATH
+	}
+	var maxFiles int
+	if viper.IsSet(constants.GURMS_LOGGING_FILE_MAX_FILES) {
+		maxFiles = viper.GetInt(constants.GURMS_LOGGING_FILE_MAX_FILES)
+	} else {
+		maxFiles = FILE_DEFAULT_VALUE_MAX_FILES
+	}
+	var fileSizeMb int
+	if viper.IsSet(constants.GURMS_LOGGING_FILE_MAX_FILE_SIZE_MB) {
+		fileSizeMb = viper.GetInt(constants.GURMS_LOGGING_FILE_MAX_FILE_SIZE_MB)
+	} else {
+		fileSizeMb = FILE_DEFAULT_VALUE_FILE_SIZE_MB
+	}
+	var compression bool
+	if viper.IsSet(constants.GURMS_LOGGING_FILE_COMPRESSION_ENABLED) {
+		compression = viper.GetBool(constants.GURMS_LOGGING_FILE_COMPRESSION_ENABLED)
+	} else {
+		compression = FILE_DEFAULT_VALUE_COMPRESSION_ENABLED
+	}
+
 	return &FileLoggingProperties{
 		enabled:       enabled,
-		level:         level,
-		filePath:      filePath,
+		level:         loglevel.LogLevel(level),
+		filePath:      path,
 		maxFiles:      maxFiles,
-		maxFileSizeMb: maxFileSizeMb,
-		compression:   compression,
+		maxFileSizeMb: fileSizeMb,
+		compression:   NewFileLoggingCompressionProperties(compression),
 	}
 }
 
@@ -58,5 +92,5 @@ func (f *FileLoggingProperties) GetMaxFilesSizeMb() int {
 }
 
 func (f *FileLoggingProperties) GetCompression() bool {
-	return f.compression
+	return f.compression.enabled
 }

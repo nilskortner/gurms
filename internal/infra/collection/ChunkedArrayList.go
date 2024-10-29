@@ -308,8 +308,8 @@ func indexOf(slice []int, element int) int {
 	return -1
 }
 
-func lastIndexOf(slice []int, element int) int {
+// func lastIndexOf(slice []int, element int) int {
 
-}
+// }
 
 // endregion

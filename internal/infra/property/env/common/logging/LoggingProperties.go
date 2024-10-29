@@ -5,10 +5,10 @@ type LoggingProperties struct {
 	file    *FileLoggingProperties
 }
 
-func NewLoggingProperties(console *ConsoleLoggingProperties, file *FileLoggingProperties) *LoggingProperties {
+func NewLoggingProperties() *LoggingProperties {
 	return &LoggingProperties{
-		console: console,
-		file:    file,
+		console: NewConsoleLoggingProperties(),
+		file:    NewFileLoggingProperties(),
 	}
 }
 

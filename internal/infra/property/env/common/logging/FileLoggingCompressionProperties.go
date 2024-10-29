@@ -6,7 +6,7 @@ type FileLoggingCompressionProperties struct {
 	enabled bool
 }
 
-func NewFileLoggingCompressionProperties() *FileLoggingCompressionProperties {
+func NewFileLoggingCompressionProperties(compression bool) *FileLoggingCompressionProperties {
 	return &FileLoggingCompressionProperties{
 		enabled: FILE_DEFAULT_VALUE_COMPRESSION_ENABLED,
 	}

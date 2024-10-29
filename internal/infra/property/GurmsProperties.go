@@ -15,15 +15,15 @@ const SCHEMA_VERSION = 1
 
 type GurmsProperties struct {
 	// Common
-	cluster        *cluster.ClusterProperties
-	flightRecorder *common.FlightRecorderProperties
-	healthCheck    *healthcheck.HealthCheckProperties
-	ip             *common.IpProperties
-	location       *location.LocationProperties
-	logging        *logging.LoggingProperties
-	security       *security.SecurityProperties
-	shutdown       *common.ShutdownProperties
-	userStatus     *common.UserStatusProperties
+	Cluster        *cluster.ClusterProperties
+	FlightRecorder *common.FlightRecorderProperties
+	HealthCheck    *healthcheck.HealthCheckProperties
+	Ip             *common.IpProperties
+	Location       *location.LocationProperties
+	Logging        *logging.LoggingProperties
+	Security       *security.SecurityProperties
+	Shutdown       *common.ShutdownProperties
+	UserStatus     *common.UserStatusProperties
 	// AI Serving, Gateway and Service
 	//aiServing *AiServingProperties
 	//gateway   *GatewayProperties
@@ -33,14 +33,14 @@ type GurmsProperties struct {
 
 func InitGurmsProperties() *GurmsProperties {
 	return &GurmsProperties{
-		cluster:        cluster.NewClusterProperties(),
-		flightRecorder: common.NewFlightRecorderProperties(),
-		healthCheck:    healthcheck.NewHealthCheckProperties(),
-		ip:             common.NewIpProperties(),
-		location:       location.NewLocationProperties(),
-		logging:        logging.NewLoggingProperties(),
-		security:       security.NewSecurityProperties(),
-		shutdown:       common.NewShutdonwProperties(),
-		userStatus:     common.NewUserStatusProperties(),
+		Cluster:        cluster.NewClusterProperties(),
+		FlightRecorder: common.NewFlightRecorderProperties(),
+		HealthCheck:    healthcheck.NewHealthCheckProperties(),
+		Ip:             common.NewIpProperties(),
+		Location:       location.NewLocationProperties(),
+		Logging:        logging.NewLoggingProperties(),
+		Security:       security.NewSecurityProperties(),
+		Shutdown:       common.NewShutdonwProperties(),
+		UserStatus:     common.NewUserStatusProperties(),
 	}
 }

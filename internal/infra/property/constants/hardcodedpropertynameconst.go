@@ -1,4 +1,4 @@
-package property
+package constants
 
 const (
 	GURMS_CLUSTER_NODE_ID string = "gurms.cluster.node.id"

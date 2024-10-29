@@ -7,14 +7,14 @@ import (
 	"runtime"
 	"time"
 
+	"gurms/internal/infra/cluster"
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/cluster/node/nodetype"
 	_ "gurms/internal/infra/collection"
 	_ "gurms/internal/infra/lang"
 	"gurms/internal/infra/logging/core/factory"
-	"gurms/internal/infra/logging/core/model/loglevel"
 	"gurms/internal/infra/property"
-	"gurms/internal/infra/property/env/common/logging"
+	"gurms/internal/infra/property/constants"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
@@ -25,6 +25,7 @@ type BaseApplication struct {
 }
 
 var logger zerolog.Logger
+var properties *property.GurmsProperties
 
 func NewBaseApplication(nodeType nodetype.NodeType) *BaseApplication {
 	return &BaseApplication{
@@ -66,12 +67,16 @@ func (app *BaseApplication) setupLogging() {
 }
 
 func (app *BaseApplication) initEnv() {
-	// AsyncLoggerFactoryInit
-	var nodeId string = node.InitNodeId(viper.GetString(property.GURMS_CLUSTER_NODE_ID))
-	loggingProperties := configureContextForLogging()
-	factory.Loggerfactory(false, nodeId, app.nodeType, loggingProperties)
+	properties = property.InitGurmsProperties()
 
-	property.InitGurmsProperties()
+	var nodeId string = node.InitNodeId(viper.GetString(constants.GURMS_CLUSTER_NODE_ID))
+	factory.Loggerfactory(false, nodeId, app.nodeType, properties.Logging)
+
+	// iMongoCollectionInitializer
+	node := cluster.NewNode()
+	propertiesmanager := property.NewGurmsPropertiesManager(node, properties)
+	//metricsconfig
+
 }
 
 // Run starts the application
@@ -97,58 +102,4 @@ func (app *BaseApplication) handlePanic() {
 		logger.Info().Msg("Application shutting down gracefully")
 		os.Exit(1)
 	}
-}
-
-func configureContextForLogging() *logging.LoggingProperties {
-	var enabled bool
-	if viper.IsSet(property.GURMS_LOGGING_CONSOLE_ENABLED) {
-		enabled = viper.GetBool(property.GURMS_LOGGING_CONSOLE_ENABLED)
-	} else {
-		enabled = logging.CONSOLE_DEFAULT_VALUE_ENABLED
-	}
-	var level loglevel.LogLevel
-	if viper.IsSet(property.GURMS_LOGGING_CONSOLE_LEVEL) {
-		level = loglevel.LogLevel(viper.GetInt(property.GURMS_LOGGING_CONSOLE_LEVEL))
-	} else {
-		level = logging.CONSOLE_DEFAULT_VALUE_LEVEL
-	}
-	consoleLoggingProperties := logging.NewConsoleLoggingProperties(enabled, level)
-
-	if viper.IsSet(property.GURMS_LOGGING_FILE_ENABLED) {
-		enabled = viper.GetBool(property.GURMS_LOGGING_FILE_ENABLED)
-	} else {
-		enabled = logging.FILE_DEFAULT_VALUE_ENABLED
-	}
-	if viper.IsSet(property.GURMS_LOGGING_FILE_LEVEL) {
-		level = loglevel.LogLevel(viper.GetInt(property.GURMS_LOGGING_FILE_LEVEL))
-	} else {
-		level = logging.FILE_DEFAULT_VALUE_LEVEL
-	}
-	var path string
-	if viper.IsSet(property.GURMS_LOGGING_FILE_PATH) {
-		path = viper.GetString(property.GURMS_LOGGING_FILE_PATH)
-	} else {
-		path = logging.FILE_DEFAULT_VALUE_FILE_PATH
-	}
-	var maxFiles int
-	if viper.IsSet(property.GURMS_LOGGING_FILE_MAX_FILES) {
-		maxFiles = viper.GetInt(property.GURMS_LOGGING_FILE_MAX_FILES)
-	} else {
-		maxFiles = logging.FILE_DEFAULT_VALUE_MAX_FILES
-	}
-	var fileSizeMb int
-	if viper.IsSet(property.GURMS_LOGGING_FILE_MAX_FILE_SIZE_MB) {
-		fileSizeMb = viper.GetInt(property.GURMS_LOGGING_FILE_MAX_FILE_SIZE_MB)
-	} else {
-		fileSizeMb = logging.FILE_DEFAULT_VALUE_FILE_SIZE_MB
-	}
-	var compression bool
-	if viper.IsSet(property.GURMS_LOGGING_FILE_COMPRESSION_ENABLED) {
-		compression = viper.GetBool(property.GURMS_LOGGING_FILE_COMPRESSION_ENABLED)
-	} else {
-		compression = logging.FILE_DEFAULT_VALUE_COMPRESSION_ENABLED
-	}
-	fileLoggingProperties := logging.NewFileLoggingProperties(enabled, level, path, maxFiles, fileSizeMb, compression)
-
-	return logging.NewLoggingProperties(consoleLoggingProperties, fileLoggingProperties)
 }
