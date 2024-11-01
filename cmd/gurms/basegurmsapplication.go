@@ -73,8 +73,9 @@ func (app *BaseApplication) initEnv() {
 	factory.Loggerfactory(false, nodeId, app.nodeType, properties.Logging)
 
 	// iMongoCollectionInitializer
-	node := cluster.NewNode()
-	propertiesmanager := property.NewGurmsPropertiesManager(node, properties)
+	propertiesmanager := property.NewGurmsPropertiesManager(properties)
+	node = cluster.NewNode(app.nodeType, propertiesmanager)
+	propertiesmanager.SetNode(node)
 	//metricsconfig
 
 }

@@ -9,16 +9,20 @@ var GPMLOGGER logger.Logger = factory.GetLogger("GurmsPropertiesManager")
 
 type Node interface {
 	Start()
+	InitNodeId(id string) string
 }
 
 type GurmsPropertiesManager struct {
-	node                 Node
-	localGurmsProperties *GurmsProperties
+	Node                 *Node
+	LocalGurmsProperties *GurmsProperties
 }
 
-func NewGurmsPropertiesManager(node Node, localGurmsProperties *GurmsProperties) *GurmsPropertiesManager {
+func NewGurmsPropertiesManager(localGurmsProperties *GurmsProperties) *GurmsPropertiesManager {
 	return &GurmsPropertiesManager{
-		node:                 node,
-		localGurmsProperties: localGurmsProperties,
+		LocalGurmsProperties: localGurmsProperties,
 	}
+}
+
+func (g *GurmsPropertiesManager) SetNode(node *Node) {
+	g.Node = node
 }

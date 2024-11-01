@@ -8,6 +8,7 @@ import (
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property"
 	"gurms/internal/infra/property/env/common/cluster"
+	"gurms/internal/infra/property/env/common/cluster/connection"
 	"regexp"
 	"strconv"
 )
@@ -18,6 +19,18 @@ var nodeId string
 var nodeType nodetype.NodeType
 
 type Node struct {
+	gurmsProperties        *property.GurmsProperties
+	clusterProperties      *cluster.ClusterProperties
+	sharedConfigProperties *cluster.SharedConfigProperties
+	nodeProperties         *cluster.NodeProperties
+	connectionProperties   *connection.ConnectionProperties
+	discoveryProperties    *cluster.DiscoveryProperties
+	grpcProperties         *cluster.GrpcProperties
+
+	clusterId string
+	zone      string
+	name      string
+
 	sharedConfigService   *SharedConfigService
 	sharedPropertyService *SharedPropertyService
 	codecService          *CodecService
@@ -34,6 +47,46 @@ func NewNode(
 	healthCheckManager *healthcheck.HealthCheckManager,
 ) *Node {
 	nodeType = nType
+	properties := propertiesManager.LocalGurmsProperties
+	clusterProperties := properties.Cluster
+	sharedConfigProperties := clusterProperties.SharedConfig
+	nodeProperties := clusterProperties.Node
+	connectionProperties := clusterProperties.Connection
+	discoveryProperties := clusterProperties.Discovery
+	grpcProperties := clusterProperties.Grpc
+
+	clusterId := clusterProperties.Id
+	nodeId = InitNodeId(nodeProperties.Id)
+	zone := nodeProperties.Zone
+	name := nodeProperties.Name
+	if name == "" {
+		name = nodeId
+	} else {
+		if len(name) > cluster.NODE_NAME_MAX_LENGTH {
+			panic("length of node id must be less than or equal to " + strconv.Itoa(cluster.NODE_NAME_MAX_LENGTH))
+		}
+		matched, err := regexp.MatchString("^[a-zA-Z_]\\w*$", name)
+		if !matched {
+			panic("The node ID must start with a letter or underscore, " +
+				"and match zero or more of characters [a-zA-Z0-9_] after the beginning" +
+				err.Error())
+		}
+	}
+	codecService := 
+
+	return &Node{
+		gurmsProperties:        properties,
+		clusterProperties:      clusterProperties,
+		sharedConfigProperties: sharedConfigProperties,
+		nodeProperties:         nodeProperties,
+		connectionProperties:   connectionProperties,
+		discoveryProperties:    discoveryProperties,
+		grpcProperties:         grpcProperties,
+
+		clusterId: clusterId,
+		zone:      zone,
+		name:      name,
+	}
 }
 
 func InitNodeId(id string) string {
@@ -41,7 +94,7 @@ func InitNodeId(id string) string {
 		return nodeId
 	}
 	if id == "" {
-
+		id = randomstringutils.randomAlphabetic(8).toLowerCase()
 		NODELOGGER.WarnWithArgs(
 			"A random node ID ({}) has been used. You should better set a node ID manually in production",
 			id)
@@ -61,5 +114,5 @@ func InitNodeId(id string) string {
 }
 
 func (n *Node) Start() {
-
+	a
 }

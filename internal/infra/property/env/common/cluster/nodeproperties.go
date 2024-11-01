@@ -9,22 +9,25 @@ type NodeProperties struct {
 	//   - "e.g. \"turms001\", \"turms_002\". "
 	//   - "A node must have a unique ID. "
 	//   - "If not specified, Turms server will generate a random unique ID"
-	id string
+	Id string
 	// "The node name must start with a letter or underscore, "
 	//   - "and matches zero or more of characters [a-zA-Z0-9_] after the beginning. "
 	//   - "e.g. \"turms001\", \"turms_002\". "
 	//   - "The node name can be duplicate in the cluster. "
 	//   - "If not specified, Turms server will use the node ID as the node name"
-	name string
+	Name string
 	// "e.g. \"us-east-1\" and \"ap-east-1\""
-	zone            string
-	activeByDefault bool
+	Zone            string
+	ActiveByDefault bool
 	// "Only works when it is a turms-service node"
-	leaderEligible bool
+	LeaderEligible bool
 	// "The priority to be a leader"
-	priority int
+	Priority int
 }
 
 func InitNodeProperties() *NodeProperties {
-	return &NodeProperties{}
+	return &NodeProperties{
+		ActiveByDefault: true,
+		LeaderEligible:  true,
+	}
 }
