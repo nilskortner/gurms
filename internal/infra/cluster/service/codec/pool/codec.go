@@ -1,5 +1,5 @@
 package pool
 
-type Codec interface {
+type Codec[T any] interface {
 	GetCodecId()
 }

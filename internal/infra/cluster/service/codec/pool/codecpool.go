@@ -1,7 +1,7 @@
 package pool
 
-var ID_TO_CODEC map[int]Codec
-var STRCT_TO_CODEC map[string]Codec
+var ID_TO_CODEC map[int]Codec[any]
+var STRCT_TO_CODEC map[string]Codec[any]
 
 type Pool struct {
 }
@@ -11,8 +11,8 @@ func NewPool() *Pool {
 }
 
 func Init() {
-	ID_TO_CODEC = make(map[int]Codec, 32)
-	STRCT_TO_CODEC = make(map[string]Codec, 32)
+	ID_TO_CODEC = make(map[int]Codec[any], 32)
+	STRCT_TO_CODEC = make(map[string]Codec[any], 32)
 
 	if !(len(ID_TO_CODEC) == 0) {
 		return
