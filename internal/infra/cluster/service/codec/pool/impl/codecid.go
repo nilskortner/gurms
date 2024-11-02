@@ -1,4 +1,4 @@
-package pool
+package impl
 
 const (
 	PRIMITVE_BYTE = iota + 1
@@ -38,13 +38,3 @@ const (
 
 	DTO_SERVICE_RESPONSE = 2000
 )
-
-type CodedId struct {
-	id int
-}
-
-func NewCodecId(id int) *CodedId {
-	return &CodedId{
-		id: id,
-	}
-}

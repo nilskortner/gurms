@@ -1,0 +1,19 @@
+func () * {
+	return &{}
+}
+
+func () GetCodecId() int {
+	return 
+}
+
+func () InitialCapacity(data ) int {
+	return 
+}
+
+func () Write(output io.Stream, data ) {
+	output.
+}
+
+func () Read(input io.Stream) {
+	input.
+}

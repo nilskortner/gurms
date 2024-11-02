@@ -1,14 +1,31 @@
 package impl
 
-import "gurms/internal/infra/cluster/service/codec/pool"
+import (
+	"gurms/internal/infra/io"
+	"unsafe"
+)
 
-type ByteCodec struct {
+const THISSYSTEMINT = int(unsafe.Sizeof(int(0) * 8))
+
+type IntCodec struct {
 }
 
-func (b ByteCodec) GetCodecId() int {
-	return pool.PRIMITIVE_BOOL
+func NewIntCodec() *IntCodec {
+	return &IntCodec{}
 }
 
-func (b ByteCodec) InitialCapacity(data byte) int {
-	return 1
+func (i *IntCodec) GetCodecId() int {
+	return 
+}
+
+func (i *IntCodec) InitialCapacity(data int) int {
+	return THISSYSTEMINT
+}
+
+func (i *IntCodec) Write(output io.Stream, data int) {
+	output.
+}
+
+func (i *IntCodec) Read(input io.Stream) {
+	input.
 }

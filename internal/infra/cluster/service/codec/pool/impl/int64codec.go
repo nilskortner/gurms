@@ -1,14 +1,26 @@
 package impl
 
-import "gurms/internal/infra/cluster/service/codec/pool"
+import "gurms/internal/infra/io"
 
-type ByteCodec struct {
+type Int64Codec struct {
 }
 
-func (b ByteCodec) GetCodecId() int {
-	return pool.PRIMITIVE_BOOL
+func NewInt64Codec() *Int64Codec {
+	return &Int64Codec{}
 }
 
-func (b ByteCodec) InitialCapacity(data byte) int {
-	return 1
+func (*Int64Codec) GetCodecId() int {
+	return PRIMITIVE_INT64
+}
+
+func (*Int64Codec) InitialCapacity(data int64) int {
+	return 8
+}
+
+func (*Int64Codec) Write(output io.Stream, data int64) {
+	output.
+}
+
+func (*Int64Codec) Read(input io.Stream) {
+	input.
 }

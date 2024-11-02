@@ -1,14 +1,28 @@
 package impl
 
-import "gurms/internal/infra/cluster/service/codec/pool"
+import (
+	"gurms/internal/infra/cluster/service/codec/codecio"
+)
 
-type ByteCodec struct {
+type RuneCodec struct {
 }
 
-func (b ByteCodec) GetCodecId() int {
-	return pool.PRIMITIVE_BOOL
+func NewRuneCodec() *RuneCodec {
+	return &RuneCodec{}
 }
 
-func (b ByteCodec) InitialCapacity(data byte) int {
-	return 1
+func (r *RuneCodec) GetCodecId() int {
+	return PRIMITIVE_RUNE
+}
+
+func (r *RuneCodec) InitialCapacity(data ) int {
+	return 4
+}
+
+func (r *RuneCodec) Write(output codecio.CodecStream, data rune ) {
+	output.
+}
+
+func (r *RuneCodec) Read(input codecio.CodecStream) {
+	input.
 }

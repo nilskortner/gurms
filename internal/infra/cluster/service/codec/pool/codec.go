@@ -1,5 +1,6 @@
 package pool
 
-type Codec[T any] interface {
-	GetCodecId()
+type Codec interface {
+	GetCodecId() int
+	InitialCapacity(data any) int
 }

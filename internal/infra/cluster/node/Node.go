@@ -3,6 +3,8 @@ package node
 import (
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
+	"gurms/internal/infra/cluster/service/codec"
+	"gurms/internal/infra/cluster/service/rpcserv"
 	"gurms/internal/infra/healthcheck"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -25,7 +27,7 @@ type Node struct {
 	nodeProperties         *cluster.NodeProperties
 	connectionProperties   *connection.ConnectionProperties
 	discoveryProperties    *cluster.DiscoveryProperties
-	grpcProperties         *cluster.GrpcProperties
+	grpcProperties         *cluster.RpcProperties
 
 	clusterId string
 	zone      string
@@ -72,7 +74,9 @@ func NewNode(
 				err.Error())
 		}
 	}
-	codecService := 
+	codecService := codec.NewCodecService()
+	// connection service
+	rpcService := rpcserv.NewRpcService()
 
 	return &Node{
 		gurmsProperties:        properties,
