@@ -1,6 +1,8 @@
 package impl
 
-import "gurms/internal/infra/io"
+import (
+	"gurms/internal/infra/io"
+)
 
 type StringCodec struct {
 }
@@ -14,13 +16,13 @@ func (s *StringCodec) GetCodecId() int {
 }
 
 func (s *StringCodec) InitialCapacity(data string) int {
-	return 2+len(data)+1
+	return 2 + len(data) + 1
 }
 
-func (s *StringCodec) Write(output io.Stream, data string) {
-	output.
+func (s *StringCodec) Write(output *io.Stream, data string) {
+	//output.
 }
 
-func (s *StringCodec) Read(input io.Stream) {
-	input.
+func (s *StringCodec) Read(input *io.Stream) {
+	//input.
 }

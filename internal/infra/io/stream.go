@@ -11,3 +11,13 @@ func NewStream(buf *bytes.Buffer) *Stream {
 		buf: buf,
 	}
 }
+
+func (s *Stream) WriteBoolean(value bool) *Stream {
+	// protobuf marshalling value
+	//s.buf.Write()
+	return s
+}
+
+func (s *Stream) ReadBoolean() {
+
+}

@@ -8,7 +8,7 @@ type ClusterProperties struct {
 	Connection   *connection.ConnectionProperties
 	Discovery    *DiscoveryProperties
 	SharedConfig *SharedConfigProperties
-	Grpc         *GrpcProperties
+	Rpc          *RpcProperties
 }
 
 func NewClusterProperties() *ClusterProperties {
@@ -18,6 +18,6 @@ func NewClusterProperties() *ClusterProperties {
 		Connection:   connection.InitConnectionProperties(),
 		Discovery:    NewDiscoveryProperties(),
 		SharedConfig: NewSharedConfigProperties(),
-		Grpc:         NewGrpcProperties(),
+		Rpc:          NewRpcProperties(),
 	}
 }

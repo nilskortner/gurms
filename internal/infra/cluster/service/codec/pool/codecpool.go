@@ -7,13 +7,6 @@ import (
 
 var ID_TO_CODEC map[int]Codec
 
-type Pool struct {
-}
-
-func NewPool() *Pool {
-	return &Pool{}
-}
-
 func Init() {
 	ID_TO_CODEC = make(map[int]Codec, 32)
 
@@ -29,6 +22,16 @@ func Init() {
 	register(runeCodec)
 	float64Codec := impl.NewFloat64Codec()
 	register(float64Codec)
+	float32Codec := impl.NewFloat32Codec()
+	register(float32Codec)
+	intCodec := impl.NewIntCodec()
+	register(intCodec)
+	int64Codec := impl.NewInt64Codec()
+	register(int64Codec)
+	int16Codec := impl.NewInt16Codec()
+	register(int16Codec)
+	stringCodec := impl.NewStringCodec()
+	register(stringCodec)
 
 	// Datastructures
 }
@@ -37,7 +40,7 @@ func register(codec Codec) error {
 	id := codec.GetCodecId()
 	_, exists := ID_TO_CODEC[id]
 	if exists {
-		return fmt.Errorf("The codec ID (%w) has already existed", id)
+		return fmt.Errorf("the codec ID (%d) has already existed", id)
 	} else {
 		ID_TO_CODEC[id] = codec
 		return nil

@@ -1,6 +1,8 @@
 package impl
 
-import "gurms/internal/infra/io"
+import (
+	"gurms/internal/infra/io"
+)
 
 type Int16Codec struct {
 }
@@ -17,10 +19,10 @@ func (*Int16Codec) InitialCapacity(data int16) int {
 	return 2
 }
 
-func (*Int16Codec) Write(output io.Stream, data int16) {
-	output.
+func (*Int16Codec) Write(output *io.Stream, data int16) {
+	//output.
 }
 
-func (*Int16Codec) Read(input io.Stream) {
-	input.
+func (*Int16Codec) Read(input *io.Stream) {
+	//input.
 }

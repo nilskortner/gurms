@@ -4,6 +4,7 @@ import (
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/codec"
+	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/rpcserv"
 	"gurms/internal/infra/healthcheck"
 	"gurms/internal/infra/logging/core/factory"
@@ -27,7 +28,7 @@ type Node struct {
 	nodeProperties         *cluster.NodeProperties
 	connectionProperties   *connection.ConnectionProperties
 	discoveryProperties    *cluster.DiscoveryProperties
-	grpcProperties         *cluster.RpcProperties
+	rpcProperties          *cluster.RpcProperties
 
 	clusterId string
 	zone      string
@@ -35,8 +36,8 @@ type Node struct {
 
 	sharedConfigService   *SharedConfigService
 	sharedPropertyService *SharedPropertyService
-	codecService          *CodecService
-	connectionService     *ConnectionService
+	codecService          *codec.CodecService
+	connectionService     *connectionservice.ConnectionService
 	discoveryService      *DiscoveryService
 	grpcService           *GrocService
 	idService             *IdService
@@ -55,7 +56,7 @@ func NewNode(
 	nodeProperties := clusterProperties.Node
 	connectionProperties := clusterProperties.Connection
 	discoveryProperties := clusterProperties.Discovery
-	grpcProperties := clusterProperties.Grpc
+	rpcProperties := clusterProperties.Grpc
 
 	clusterId := clusterProperties.Id
 	nodeId = InitNodeId(nodeProperties.Id)
@@ -75,8 +76,8 @@ func NewNode(
 		}
 	}
 	codecService := codec.NewCodecService()
-	// connection service
-	rpcService := rpcserv.NewRpcService()
+	connectionService := connectionservice.NewConnectionService()
+	rpcService := rpcserv.NewRpcService(rpcProperties)
 
 	return &Node{
 		gurmsProperties:        properties,
@@ -85,7 +86,7 @@ func NewNode(
 		nodeProperties:         nodeProperties,
 		connectionProperties:   connectionProperties,
 		discoveryProperties:    discoveryProperties,
-		grpcProperties:         grpcProperties,
+		rpcProperties:          rpcProperties,
 
 		clusterId: clusterId,
 		zone:      zone,

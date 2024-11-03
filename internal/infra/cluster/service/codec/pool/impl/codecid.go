@@ -38,3 +38,5 @@ const (
 
 	DTO_SERVICE_RESPONSE = 2000
 )
+
+func getTypeById() {}

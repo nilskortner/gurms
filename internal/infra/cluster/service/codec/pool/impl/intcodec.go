@@ -15,17 +15,17 @@ func NewIntCodec() *IntCodec {
 }
 
 func (i *IntCodec) GetCodecId() int {
-	return 
+	return PRIMITIVE_INT
 }
 
 func (i *IntCodec) InitialCapacity(data int) int {
 	return THISSYSTEMINT
 }
 
-func (i *IntCodec) Write(output io.Stream, data int) {
-	output.
+func (i *IntCodec) Write(output *io.Stream, data int) {
+	//output.
 }
 
-func (i *IntCodec) Read(input io.Stream) {
-	input.
+func (i *IntCodec) Read(input *io.Stream) {
+	//input.
 }
