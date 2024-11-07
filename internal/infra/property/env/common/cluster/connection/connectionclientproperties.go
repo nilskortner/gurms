@@ -3,17 +3,17 @@ package connection
 import "gurms/internal/infra/property/env/common"
 
 type ConnectionClientProperties struct {
-	keepAliveTimeoutSeconds  int
-	keepAliveIntervalSeconds int
-	reconnectIntervalSeconds int
-	ssl                      *common.SslProperties
+	KeepAliveTimeoutSeconds  int
+	KeepAliveIntervalSeconds int
+	ReconnectIntervalSeconds int
+	Ssl                      *common.SslProperties
 }
 
 func NewConnectionClientProperties() *ConnectionClientProperties {
 	return &ConnectionClientProperties{
-		keepAliveTimeoutSeconds:  15,
-		keepAliveIntervalSeconds: 5,
-		reconnectIntervalSeconds: 15,
-		ssl:                      &common.SslProperties{},
+		KeepAliveTimeoutSeconds:  15,
+		KeepAliveIntervalSeconds: 5,
+		ReconnectIntervalSeconds: 15,
+		Ssl:                      &common.SslProperties{},
 	}
 }

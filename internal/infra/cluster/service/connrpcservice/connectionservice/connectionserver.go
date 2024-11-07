@@ -9,14 +9,14 @@ import (
 var CONNECTIONSERVERLOGGER logger.Logger = factory.GetLogger("ConnectionServer")
 
 type ConnectionServer struct {
-	host              string
-	proposedPort      int
-	portAutoIncrement bool
-	portCount         int
-	ssl               *common.SslProperties
-	connectionConsumer
-	port   int
-	server DisposableServer
+	host               string
+	proposedPort       int
+	portCount          int
+	portAutoIncrement  bool
+	ssl                *common.SslProperties
+	connectionConsumer *any
+	port               int
+	server             *ConnectionServer
 }
 
 func NewConnectionServer(
@@ -25,7 +25,7 @@ func NewConnectionServer(
 	portAutoIncrement bool,
 	portCount int,
 	ssl *common.SslProperties,
-	connectionConsumer *Consumer,
+	connectionConsumer *any,
 ) *ConnectionServer {
 	return &ConnectionServer{
 		port:               -1,
@@ -35,5 +35,11 @@ func NewConnectionServer(
 		portCount:          portCount,
 		ssl:                ssl,
 		connectionConsumer: connectionConsumer,
+	}
+}
+
+func (c *ConnectionServer) blockUntilConnect() {
+	if c.server == nil {
+		return
 	}
 }

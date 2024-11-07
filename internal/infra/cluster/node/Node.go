@@ -39,7 +39,7 @@ type Node struct {
 	codecService          *codec.CodecService
 	connectionService     *connectionservice.ConnectionService
 	discoveryService      *DiscoveryService
-	grpcService           *GrocService
+	grpcService           *rpcserv.RpcService
 	idService             *IdService
 }
 
@@ -56,7 +56,7 @@ func NewNode(
 	nodeProperties := clusterProperties.Node
 	connectionProperties := clusterProperties.Connection
 	discoveryProperties := clusterProperties.Discovery
-	rpcProperties := clusterProperties.Grpc
+	rpcProperties := clusterProperties.Rpc
 
 	clusterId := clusterProperties.Id
 	nodeId = InitNodeId(nodeProperties.Id)
@@ -77,7 +77,7 @@ func NewNode(
 	}
 	codecService := codec.NewCodecService()
 	connectionService := connectionservice.NewConnectionService()
-	rpcService := rpcserv.NewRpcService(rpcProperties)
+	rpcService := rpcserv.NewRpcService(nodeType, rpcProperties)
 
 	return &Node{
 		gurmsProperties:        properties,
