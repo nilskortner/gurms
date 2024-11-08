@@ -3,6 +3,9 @@ package connrpcservice
 import (
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/codec"
+	"gurms/internal/infra/cluster/service/connrpcservice/connectionservice"
+	"gurms/internal/infra/cluster/service/connrpcservice/rpcservice"
+	"gurms/internal/infra/cluster/service/connrpcservice/rpcservice/dto"
 	"gurms/internal/infra/cluster/service/discovery"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -25,14 +28,14 @@ type RpcService struct {
 	codecService          *codec.CodecService
 	connectionService     *ConnectionService
 	discoveryService      *discovery.DiscoveryService
-	nodeIdToEndpoint      *cmap.ConcurrentMap[string, *RpcEndpoint]
+	nodeIdToEndpoint      cmap.ConcurrentMap[string, *rpcservice.RpcEndpoint]
 }
 
 func NewRpcService(nodeType nodetype.NodeType, rpcProperties *cluster.RpcProperties) *RpcService {
 	return &RpcService{
 		nodeType:              nodeType,
 		defaultRequestTimeout: rpcProperties.JobTimeoutMillis,
-		nodeIdToEndpoint:      cmap.New[string, *RpcEndpoint](),
+		nodeIdToEndpoint:      cmap.New[*rpcservice.RpcEndpoint](),
 	}
 }
 
@@ -40,17 +43,17 @@ func NewRpcService(nodeType nodetype.NodeType, rpcProperties *cluster.RpcPropert
 
 // }
 
-func RequestResponse(request RpcRequest) {
+func RequestResponse(request *dto.RpcRequest) {
 
 }
 
-func RequestResponseWithId(memberNodeId string, request RpcRequest) {}
+func RequestResponseWithId(memberNodeId string, request dto.RpcRequest) {}
 
-func RequestResponseWithDuration(memberNodeId string, request RpcRequest, timeout int64) {
+func RequestResponseWithDuration(memberNodeId string, request dto.RpcRequest, timeout int64) {
 
 }
 
-func RequestResponseWithGurmsConnection(memberNodeId string, request RpcRequest, timeout int64, connection *GurmsConnection) {
+func RequestResponseWithGurmsConnection(memberNodeId string, request dto.RpcRequest, timeout int64, connection *connectionservice.GurmsConnection) {
 }
 
 func RequestResponseWithRpcEndpoint()

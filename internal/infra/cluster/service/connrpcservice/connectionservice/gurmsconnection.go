@@ -8,12 +8,12 @@ import (
 )
 
 type GurmsConnection struct {
-	nodeId                 string
-	connection             *grpc.ClientConn
-	isLocalNodeClient      bool
-	lastKeepaliveTimestamp int64
-	listeners              []*discovery.MemberConnectionListener
-	isClosing              bool
+	NodeId                 string
+	Connection             *grpc.ClientConn
+	IsLocalNodeClient      bool
+	LastKeepaliveTimestamp int64
+	Listeners              []*discovery.MemberConnectionListener
+	IsClosing              bool
 }
 
 func NewGurmsConnection(
@@ -23,11 +23,11 @@ func NewGurmsConnection(
 	listeners []*discovery.MemberConnectionListener,
 ) *GurmsConnection {
 	return &GurmsConnection{
-		nodeId:                 nodeid,
-		connection:             connection,
-		isLocalNodeClient:      isLocalNodeClient,
-		listeners:              listeners,
-		lastKeepaliveTimestamp: time.Now().UnixMilli(),
-		isClosing:              false,
+		NodeId:                 nodeid,
+		Connection:             connection,
+		IsLocalNodeClient:      isLocalNodeClient,
+		Listeners:              listeners,
+		LastKeepaliveTimestamp: time.Now().UnixMilli(),
+		IsClosing:              false,
 	}
 }

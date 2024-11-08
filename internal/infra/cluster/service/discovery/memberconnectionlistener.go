@@ -1,8 +1,10 @@
 package discovery
 
-type MemberConnectionListener struct {
-}
+import (
+	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
+)
 
-func NewMemberConnectionListener() *MemberConnectionListener {
-	return &MemberConnectionListener{}
+type MemberConnectionListener interface {
+	OnConnectionClosed()
+	OnOpeningHandshakeCompleted(member *configdiscovery.Member)
 }

@@ -2,9 +2,10 @@ package connrpcservice
 
 import (
 	"context"
-	"gurms/internal/infra/cluster/service/connectionservice/request"
+	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
+	"gurms/internal/infra/cluster/service/connrpcservice/connectionservice"
+	"gurms/internal/infra/cluster/service/connrpcservice/connectionservice/request"
 	"gurms/internal/infra/cluster/service/discovery"
-	"gurms/internal/infra/cluster/service/rpcserv"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common"
@@ -12,15 +13,11 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )
 
 var CONNECTIONLOGGER logger.Logger = factory.GetLogger("ConnectionService")
-
-var nodeIdToConnection cmap.ConcurrentMap[string, *GurmsConnection] = cmap.New[*GurmsConnection]()
-
-var nodeIdToConnectionRetries cmap.ConcurrentMap[string, int] = cmap.New[int]()
-var connectingMembers cmap.ConcurrentMap[string, struct{}] = cmap.New[struct{}]()
 
 type ConnectionService struct {
 	clientSsl               *common.SslProperties
@@ -28,44 +25,56 @@ type ConnectionService struct {
 	keepaliveTimeoutMillis  int64
 	reconnectInterval       int64
 
-	nodeIdToConnection        cmap.ConcurrentMap[string, *GurmsConnection]
+	nodeIdToConnection        cmap.ConcurrentMap[string, *connectionservice.GurmsConnection]
 	nodeIdToConnectionRetries cmap.ConcurrentMap[string, int]
 	connectingMembers         cmap.ConcurrentMap[string, struct{}]
 
-	discoveryService         *discovery.DiscoveryService
-	rpcService               *RpcService
-	hasConnectedToAllMembers bool
-	serverProperties         *connection.ConnectionServerProperties
-	server                   *ConnectionServer
+	memberConnectionListeners []func() *discovery.MemberConnectionListener
+	discoveryService          *discovery.DiscoveryService
+	rpcService                *RpcService
+	hasConnectedToAllMembers  bool
+	serverProperties          *connection.ConnectionServerProperties
+	server                    *connectionservice.ConnectionServer
 }
 
 func NewConnectionService(connectionProperties *connection.ConnectionProperties) *ConnectionService {
 	clientProperties := connectionProperties.Client
 
 	service := &ConnectionService{
-		serverProperties:        connectionProperties.Server,
-		clientSsl:               clientProperties.Ssl,
-		keepaliveIntervalMillis: int64(clientProperties.KeepAliveIntervalSeconds) * 1000,
-		keepaliveTimeoutMillis:  int64(clientProperties.KeepAliveTimeoutSeconds) * 1000,
-		reconnectInterval:       int64(clientProperties.ReconnectIntervalSeconds),
+		memberConnectionListeners: make([]func() *discovery.MemberConnectionListener, 0, 4),
+		serverProperties:          connectionProperties.Server,
+		clientSsl:                 clientProperties.Ssl,
+		keepaliveIntervalMillis:   int64(clientProperties.KeepAliveIntervalSeconds) * 1000,
+		keepaliveTimeoutMillis:    int64(clientProperties.KeepAliveTimeoutSeconds) * 1000,
+		reconnectInterval:         int64(clientProperties.ReconnectIntervalSeconds),
 	}
 
 	service.startSendKeepAliveToConnectionsForeverRoutine(context.Background())
 
-	server := setupServer()
+	server := service.setupServer()
 
 	return service
 }
 
-func (c *ConnectionService) LazyInitConnectionService(discoveryService *discovery.DiscoveryService, rpcService *rpcserv.RpcService) {
+func (c *ConnectionService) LazyInitConnectionService(discoveryService *discovery.DiscoveryService, rpcService *RpcService) {
 	c.discoveryService = discoveryService
 	c.rpcService = rpcService
 }
 
-func (c *ConnectionService) setupServer() *ConnectionServer {
-	server := NewConnectionServer()
-
-	server.blockUntilConnect()
+func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
+	server := connectionservice.NewConnectionServer(
+		c.serverProperties.Host,
+		c.serverProperties.Port,
+		c.serverProperties.PortAutoIncrement,
+		c.serverProperties.PortCount,
+		c.serverProperties.Ssl,
+	)
+	stream := func(conn *grpc.ClientConn) {
+		connection := connectionservice.NewGurmsConnection("", conn, false, c.newMemberConnectionListeners())
+		OnMemberConnectionAdded()
+	}
+	server.SetStream(stream)
+	server.BlockUntilConnect()
 	return server
 }
 
@@ -77,7 +86,7 @@ func (c *ConnectionService) startSendKeepAliveToConnectionsForeverRoutine(ctx co
 				CONNECTIONLOGGER.Warn("SendKeepAliveToConnectionsForeverRoutine has been stopped")
 				return
 			default:
-				for id, connection := range nodeIdToConnection.Items() {
+				for id, connection := range c.nodeIdToConnection.Items() {
 					c.sendKeepAlive(id, connection)
 				}
 				time.Sleep(1000 * time.Millisecond)
@@ -86,33 +95,67 @@ func (c *ConnectionService) startSendKeepAliveToConnectionsForeverRoutine(ctx co
 	}()
 }
 
-func (c *ConnectionService) sendKeepAlive(id string, connection *GurmsConnection) {
-	conn := connection.connection
+func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservice.GurmsConnection) {
+	conn := connection.Connection
 
 	if conn.GetState() == connectivity.Shutdown {
 		c.nodeIdToConnection.Remove(id)
 		return
 	}
-	if !connection.isLocalNodeClient {
+	if !connection.IsLocalNodeClient {
 		return
 	}
 	now := time.Now().UnixMilli()
-	elapsedTime := now - connection.lastKeepaliveTimestamp
+	elapsedTime := now - connection.LastKeepaliveTimestamp
 	if elapsedTime > c.keepaliveIntervalMillis {
-		CONNECTIONLOGGER.Warn("Reconnection to the member " + connection.nodeId + " due to keepalive timeout")
+		CONNECTIONLOGGER.Warn("Reconnection to the member " + connection.NodeId + " due to keepalive timeout")
 		disconnectConnection(connection)
 		return
 	}
 	if elapsedTime < c.keepaliveIntervalMillis {
 		return
 	}
-	rpcserv.RequestResponse(id, request.KeepaliveRequest{})
+	RequestResponse(id, request.KeepaliveRequest{})
 }
 
-func disconnectConnection(connection *GurmsConnection) {
-	connection.isClosing = true
-	err := connection.connection.Close()
+func disconnectConnection(connection *connectionservice.GurmsConnection) {
+	connection.IsClosing = true
+	err := connection.Connection.Close()
 	if err != nil {
-		CONNECTIONLOGGER.ErrorWithMessage("error closing connection "+connection.nodeId, err)
+		CONNECTIONLOGGER.ErrorWithMessage("error closing connection "+connection.NodeId, err)
 	}
+}
+
+func (c *ConnectionService) newMemberConnectionListeners() []*discovery.MemberConnectionListener {
+	list := make([]*discovery.MemberConnectionListener, len(c.memberConnectionListeners))
+	for _, listener := range c.memberConnectionListeners {
+		list = append(list, listener())
+	}
+	return list
+}
+
+func (c *ConnectionService) OnMemberConnectionAdded(member *configdiscovery.Member, connection *connectionservice.GurmsConnection) {
+	var endpointType string
+	if connection.IsLocalNodeClient {
+		endpointType = "Client"
+	} else {
+		endpointType = "Server"
+	}
+	memberIdAndAddress := getMemberIdAndAddress(connection.NodeId, member)
+	CONNECTIONLOGGER.InfoWithArgs("[{}] Connected to the Member" + memberIdAndAddress)
+	for {
+
+	}
+}
+
+func getMemberIdAndAddress(nodeId string, member *configdiscovery.Member) string {
+	if member == nil {
+		return nodeId
+	}
+	return "{id=" +
+		member.Key.NodeId +
+		", host=" +
+		member.MemberHost +
+		", port=" +
+		string(member.MemberPort) + "}"
 }
