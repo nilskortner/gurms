@@ -1,11 +1,12 @@
-package connrpcservice
+package service
 
 import (
 	"context"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
-	"gurms/internal/infra/cluster/service/connrpcservice/connectionservice"
-	"gurms/internal/infra/cluster/service/connrpcservice/connectionservice/request"
+	"gurms/internal/infra/cluster/service/connectionservice"
+	"gurms/internal/infra/cluster/service/connectionservice/request"
 	"gurms/internal/infra/cluster/service/discovery"
+	"gurms/internal/infra/cluster/service/discovery/memberconnectionlistener"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common"
@@ -29,7 +30,7 @@ type ConnectionService struct {
 	nodeIdToConnectionRetries cmap.ConcurrentMap[string, int]
 	connectingMembers         cmap.ConcurrentMap[string, struct{}]
 
-	memberConnectionListeners []func() *discovery.MemberConnectionListener
+	memberConnectionListeners []func() memberconnectionlistener.MemberConnectionListener
 	discoveryService          *discovery.DiscoveryService
 	rpcService                *RpcService
 	hasConnectedToAllMembers  bool
@@ -41,7 +42,7 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties)
 	clientProperties := connectionProperties.Client
 
 	service := &ConnectionService{
-		memberConnectionListeners: make([]func() *discovery.MemberConnectionListener, 0, 4),
+		memberConnectionListeners: make([]func() memberconnectionlistener.MemberConnectionListener, 0, 4),
 		serverProperties:          connectionProperties.Server,
 		clientSsl:                 clientProperties.Ssl,
 		keepaliveIntervalMillis:   int64(clientProperties.KeepAliveIntervalSeconds) * 1000,
@@ -51,7 +52,7 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties)
 
 	service.startSendKeepAliveToConnectionsForeverRoutine(context.Background())
 
-	server := service.setupServer()
+	service.server = service.setupServer()
 
 	return service
 }
@@ -71,7 +72,7 @@ func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
 	)
 	stream := func(conn *grpc.ClientConn) {
 		connection := connectionservice.NewGurmsConnection("", conn, false, c.newMemberConnectionListeners())
-		OnMemberConnectionAdded()
+		c.OnMemberConnectionAdded(nil, connection)
 	}
 	server.SetStream(stream)
 	server.BlockUntilConnect()
@@ -126,8 +127,8 @@ func disconnectConnection(connection *connectionservice.GurmsConnection) {
 	}
 }
 
-func (c *ConnectionService) newMemberConnectionListeners() []*discovery.MemberConnectionListener {
-	list := make([]*discovery.MemberConnectionListener, len(c.memberConnectionListeners))
+func (c *ConnectionService) newMemberConnectionListeners() []*memberconnectionlistener.MemberConnectionListener {
+	list := make([]*memberconnectionlistener.MemberConnectionListener, len(c.memberConnectionListeners))
 	for _, listener := range c.memberConnectionListeners {
 		list = append(list, listener())
 	}
@@ -143,9 +144,13 @@ func (c *ConnectionService) OnMemberConnectionAdded(member *configdiscovery.Memb
 	}
 	memberIdAndAddress := getMemberIdAndAddress(connection.NodeId, member)
 	CONNECTIONLOGGER.InfoWithArgs("[{}] Connected to the Member" + memberIdAndAddress)
-	for {
-
+	for _, listener := range connection.Listeners {
+		listener.OnConnectionOpened(connection)
+		if err != nil {
+			CONNECTIONLOGGER.ErrorWithMessage("caught an error while notifiying the OnConnectionOpened listener: "+listener.getName(), err)
+		}
 	}
+	conn := connection.Connection
 }
 
 func getMemberIdAndAddress(nodeId string, member *configdiscovery.Member) string {

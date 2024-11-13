@@ -1,12 +1,11 @@
-package connrpcservice
+package service
 
 import (
 	"gurms/internal/infra/cluster/node/nodetype"
-	"gurms/internal/infra/cluster/service/codec"
-	"gurms/internal/infra/cluster/service/connrpcservice/connectionservice"
-	"gurms/internal/infra/cluster/service/connrpcservice/rpcservice"
-	"gurms/internal/infra/cluster/service/connrpcservice/rpcservice/dto"
+	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/discovery"
+	"gurms/internal/infra/cluster/service/rpcservice"
+	"gurms/internal/infra/cluster/service/rpcservice/dto"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/cluster"
@@ -25,7 +24,7 @@ const (
 type RpcService struct {
 	nodeType              nodetype.NodeType
 	defaultRequestTimeout int
-	codecService          *codec.CodecService
+	codecService          *CodecService
 	connectionService     *ConnectionService
 	discoveryService      *discovery.DiscoveryService
 	nodeIdToEndpoint      cmap.ConcurrentMap[string, *rpcservice.RpcEndpoint]
@@ -60,3 +59,7 @@ func RequestResponseWithRpcEndpoint()
 
 // internal implentations
 func requestResponse0() {}
+
+func OnConnectionOpened() {
+
+}

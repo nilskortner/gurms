@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package dto;
-
-message Request {
-    string name = 1;
-    string node_id = 2;
-
-}
