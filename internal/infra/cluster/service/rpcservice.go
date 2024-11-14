@@ -2,6 +2,7 @@ package service
 
 import (
 	"gurms/internal/infra/cluster/node/nodetype"
+	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/discovery"
 	"gurms/internal/infra/cluster/service/rpcservice"
@@ -63,3 +64,14 @@ func requestResponse0() {}
 func OnConnectionOpened() {
 
 }
+
+// region MemberConnectionListener
+
+type RpcMemberConnectionListener struct {
+}
+
+func (r *RpcMemberConnectionListener) OnConnectionOpened(connection *connectionservice.GurmsConnection)
+func (r *RpcMemberConnectionListener) OnConnectionClosed()
+func (r *RpcMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member)
+func (r *RpcMemberConnectionListener) OnClosingHandshakeCompleted()
+func (r *RpcMemberConnectionListener) OnDataReceived()

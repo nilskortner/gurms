@@ -5,7 +5,6 @@ import (
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/connectionservice/request"
-	"gurms/internal/infra/cluster/service/discovery"
 	"gurms/internal/infra/cluster/service/discovery/memberconnectionlistener"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -31,7 +30,7 @@ type ConnectionService struct {
 	connectingMembers         cmap.ConcurrentMap[string, struct{}]
 
 	memberConnectionListeners []func() memberconnectionlistener.MemberConnectionListener
-	discoveryService          *discovery.DiscoveryService
+	discoveryService          *DiscoveryService
 	rpcService                *RpcService
 	hasConnectedToAllMembers  bool
 	serverProperties          *connection.ConnectionServerProperties
@@ -57,7 +56,7 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties)
 	return service
 }
 
-func (c *ConnectionService) LazyInitConnectionService(discoveryService *discovery.DiscoveryService, rpcService *RpcService) {
+func (c *ConnectionService) LazyInitConnectionService(discoveryService *DiscoveryService, rpcService *RpcService) {
 	c.discoveryService = discoveryService
 	c.rpcService = rpcService
 }

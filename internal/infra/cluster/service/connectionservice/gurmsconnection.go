@@ -6,10 +6,6 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-type MemberConnectionListener interface {
-	OnConnectionClosed()
-}
-
 type GurmsConnection struct {
 	NodeId                 string
 	Connection             *grpc.ClientConn
