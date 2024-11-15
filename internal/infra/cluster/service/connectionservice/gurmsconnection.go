@@ -8,7 +8,7 @@ import (
 
 type GurmsConnection struct {
 	NodeId                 string
-	Connection             *grpc.ClientConn
+	Connection             *ConnectionChannels
 	IsLocalNodeClient      bool
 	LastKeepaliveTimestamp int64
 	Listeners              []MemberConnectionListener
@@ -23,7 +23,7 @@ func NewGurmsConnection(
 ) *GurmsConnection {
 	return &GurmsConnection{
 		NodeId:                 nodeid,
-		Connection:             connection,
+		Connection:             NewConnectionChannels(),
 		IsLocalNodeClient:      isLocalNodeClient,
 		Listeners:              listeners,
 		LastKeepaliveTimestamp: time.Now().UnixMilli(),

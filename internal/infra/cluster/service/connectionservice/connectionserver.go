@@ -4,8 +4,6 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common"
-
-	"google.golang.org/grpc"
 )
 
 var CONNECTIONSERVERLOGGER logger.Logger = factory.GetLogger("ConnectionServer")
@@ -18,7 +16,7 @@ type ConnectionServer struct {
 	portCount         int
 	portAutoIncrement bool
 	ssl               *common.SslProperties
-	connectionStream  func(conn *grpc.ClientConn)
+	connectionStream  func(conn *ConnectionChannels)
 	port              int
 }
 
@@ -43,11 +41,12 @@ func (c *ConnectionServer) BlockUntilConnect() {
 	if server != nil {
 		return
 	}
+	currentPort := c.proposedPort
 }
 
 func (c *ConnectionServer) Shutdown() {
 }
 
-func (c *ConnectionServer) SetStream(stream func(conn *grpc.ClientConn)) {
+func (c *ConnectionServer) SetStream(stream func(conn *ConnectionChannels)) {
 	c.connectionStream = stream
 }

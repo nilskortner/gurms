@@ -5,9 +5,9 @@ import (
 )
 
 type MemberConnectionListener interface {
-	OnConnectionOpened(connection *GurmsConnection)
+	OnConnectionOpened(connection *GurmsConnection) error
 	OnConnectionClosed()
 	OnOpeningHandshakeCompleted(member *configdiscovery.Member)
 	OnClosingHandshakeCompleted()
-	OnDataReceived()
+	OnDataReceived(value any)
 }

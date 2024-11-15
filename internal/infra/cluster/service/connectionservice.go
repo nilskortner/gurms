@@ -5,7 +5,6 @@ import (
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/connectionservice/request"
-	"gurms/internal/infra/cluster/service/discovery/memberconnectionlistener"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common"
@@ -29,7 +28,7 @@ type ConnectionService struct {
 	nodeIdToConnectionRetries cmap.ConcurrentMap[string, int]
 	connectingMembers         cmap.ConcurrentMap[string, struct{}]
 
-	memberConnectionListeners []func() memberconnectionlistener.MemberConnectionListener
+	memberConnectionListeners []func() connectionservice.MemberConnectionListener
 	discoveryService          *DiscoveryService
 	rpcService                *RpcService
 	hasConnectedToAllMembers  bool
@@ -41,7 +40,7 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties)
 	clientProperties := connectionProperties.Client
 
 	service := &ConnectionService{
-		memberConnectionListeners: make([]func() memberconnectionlistener.MemberConnectionListener, 0, 4),
+		memberConnectionListeners: make([]func() connectionservice.MemberConnectionListener, 0, 4),
 		serverProperties:          connectionProperties.Server,
 		clientSsl:                 clientProperties.Ssl,
 		keepaliveIntervalMillis:   int64(clientProperties.KeepAliveIntervalSeconds) * 1000,
@@ -110,11 +109,13 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 	if elapsedTime > c.keepaliveIntervalMillis {
 		CONNECTIONLOGGER.Warn("Reconnection to the member " + connection.NodeId + " due to keepalive timeout")
 		disconnectConnection(connection)
+		c.nodeIdToConnection.Remove(id)
 		return
 	}
 	if elapsedTime < c.keepaliveIntervalMillis {
 		return
 	}
+	// TODO: request
 	RequestResponse(id, request.KeepaliveRequest{})
 }
 
@@ -126,8 +127,8 @@ func disconnectConnection(connection *connectionservice.GurmsConnection) {
 	}
 }
 
-func (c *ConnectionService) newMemberConnectionListeners() []*memberconnectionlistener.MemberConnectionListener {
-	list := make([]*memberconnectionlistener.MemberConnectionListener, len(c.memberConnectionListeners))
+func (c *ConnectionService) newMemberConnectionListeners() []*connectionservice.MemberConnectionListener {
+	list := make([]*connectionservice.MemberConnectionListener, len(c.memberConnectionListeners))
 	for _, listener := range c.memberConnectionListeners {
 		list = append(list, listener())
 	}
@@ -144,12 +145,20 @@ func (c *ConnectionService) OnMemberConnectionAdded(member *configdiscovery.Memb
 	memberIdAndAddress := getMemberIdAndAddress(connection.NodeId, member)
 	CONNECTIONLOGGER.InfoWithArgs("[{}] Connected to the Member" + memberIdAndAddress)
 	for _, listener := range connection.Listeners {
-		listener.OnConnectionOpened(connection)
+		err := listener.OnConnectionOpened(connection)
 		if err != nil {
-			CONNECTIONLOGGER.ErrorWithMessage("caught an error while notifiying the OnConnectionOpened listener: "+listener.getName(), err)
+			CONNECTIONLOGGER.ErrorWithMessage("caught an error while notifiying the OnConnectionOpened listener: ", err)
 		}
 	}
 	conn := connection.Connection
+	for value := range conn.DataChan {
+		for _, listener := range connection.Listeners {
+			err := listener.OnDataReceived(value)
+			if err != nil {
+				CONNECTIONLOGGER.ErrorWithMessage("caught an error while notifiying the onDataReceived listener.", err)
+			}
+		}
+	}
 }
 
 func getMemberIdAndAddress(nodeId string, member *configdiscovery.Member) string {
