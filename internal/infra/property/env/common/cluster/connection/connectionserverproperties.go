@@ -1,13 +1,15 @@
 package connection
 
-import "gurms/internal/infra/property/env/common"
+import (
+	"gurms/internal/infra/property/env/common"
+)
 
 type ConnectionServerProperties struct {
 	Host              string
 	Port              int
 	PortAutoIncrement bool
 	PortCount         int
-	Ssl               *common.SslProperties
+	Tls               *common.TlsProperties
 }
 
 func NewConnectionServerProperties() *ConnectionServerProperties {
@@ -16,6 +18,6 @@ func NewConnectionServerProperties() *ConnectionServerProperties {
 		Port:              7510,
 		PortAutoIncrement: false,
 		PortCount:         100,
-		Ssl:               &common.SslProperties{},
+		Tls:               &common.TlsProperties{},
 	}
 }

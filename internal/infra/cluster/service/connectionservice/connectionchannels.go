@@ -1,12 +1,14 @@
 package connectionservice
 
 type ConnectionChannels struct {
-	DataChan chan any
+	DataChan  chan any
+	CloseChan chan struct{}
 }
 
 func NewConnectionChannels() *ConnectionChannels {
 	return &ConnectionChannels{
-		DataChan: make(chan any, 256),
+		DataChan:  make(chan any, 256),
+		CloseChan: make(chan struct{}),
 	}
 }
 

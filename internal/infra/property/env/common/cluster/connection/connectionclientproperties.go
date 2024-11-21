@@ -6,7 +6,7 @@ type ConnectionClientProperties struct {
 	KeepAliveTimeoutSeconds  int
 	KeepAliveIntervalSeconds int
 	ReconnectIntervalSeconds int
-	Ssl                      *common.SslProperties
+	Tls                      *common.TlsProperties
 }
 
 func NewConnectionClientProperties() *ConnectionClientProperties {
@@ -14,6 +14,6 @@ func NewConnectionClientProperties() *ConnectionClientProperties {
 		KeepAliveTimeoutSeconds:  15,
 		KeepAliveIntervalSeconds: 5,
 		ReconnectIntervalSeconds: 15,
-		Ssl:                      &common.SslProperties{},
+		Tls:                      &common.TlsProperties{},
 	}
 }

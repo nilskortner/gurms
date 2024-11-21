@@ -9,17 +9,17 @@ import (
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common"
 	"gurms/internal/infra/property/env/common/cluster/connection"
+	"net"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )
 
 var CONNECTIONLOGGER logger.Logger = factory.GetLogger("ConnectionService")
 
 type ConnectionService struct {
-	clientSsl               *common.SslProperties
+	clientTls               *common.TlsProperties
 	keepaliveIntervalMillis int64
 	keepaliveTimeoutMillis  int64
 	reconnectInterval       int64
@@ -28,24 +28,24 @@ type ConnectionService struct {
 	nodeIdToConnectionRetries cmap.ConcurrentMap[string, int]
 	connectingMembers         cmap.ConcurrentMap[string, struct{}]
 
-	memberConnectionListeners []func() connectionservice.MemberConnectionListener
-	discoveryService          *DiscoveryService
-	rpcService                *RpcService
-	hasConnectedToAllMembers  bool
-	serverProperties          *connection.ConnectionServerProperties
-	server                    *connectionservice.ConnectionServer
+	memberConnectionListenerSuppliers []func() *connectionservice.MemberConnectionListener
+	discoveryService                  *DiscoveryService
+	rpcService                        *RpcService
+	hasConnectedToAllMembers          bool
+	serverProperties                  *connection.ConnectionServerProperties
+	server                            *connectionservice.ConnectionServer
 }
 
 func NewConnectionService(connectionProperties *connection.ConnectionProperties) *ConnectionService {
 	clientProperties := connectionProperties.Client
 
 	service := &ConnectionService{
-		memberConnectionListeners: make([]func() connectionservice.MemberConnectionListener, 0, 4),
-		serverProperties:          connectionProperties.Server,
-		clientSsl:                 clientProperties.Ssl,
-		keepaliveIntervalMillis:   int64(clientProperties.KeepAliveIntervalSeconds) * 1000,
-		keepaliveTimeoutMillis:    int64(clientProperties.KeepAliveTimeoutSeconds) * 1000,
-		reconnectInterval:         int64(clientProperties.ReconnectIntervalSeconds),
+		memberConnectionListenerSuppliers: make([]func() *connectionservice.MemberConnectionListener, 0, 4),
+		serverProperties:                  connectionProperties.Server,
+		clientTls:                         clientProperties.Tls,
+		keepaliveIntervalMillis:           int64(clientProperties.KeepAliveIntervalSeconds) * 1000,
+		keepaliveTimeoutMillis:            int64(clientProperties.KeepAliveTimeoutSeconds) * 1000,
+		reconnectInterval:                 int64(clientProperties.ReconnectIntervalSeconds),
 	}
 
 	service.startSendKeepAliveToConnectionsForeverRoutine(context.Background())
@@ -61,18 +61,19 @@ func (c *ConnectionService) LazyInitConnectionService(discoveryService *Discover
 }
 
 func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
+	conn := func(conn *net.Conn) {
+		connection := connectionservice.NewGurmsConnection("", conn, false, c.newMemberConnectionListeners())
+		c.OnMemberConnectionAdded(nil, connection)
+	}
+
 	server := connectionservice.NewConnectionServer(
 		c.serverProperties.Host,
 		c.serverProperties.Port,
 		c.serverProperties.PortAutoIncrement,
 		c.serverProperties.PortCount,
-		c.serverProperties.Ssl,
+		c.serverProperties.Tls,
+		conn,
 	)
-	stream := func(conn *grpc.ClientConn) {
-		connection := connectionservice.NewGurmsConnection("", conn, false, c.newMemberConnectionListeners())
-		c.OnMemberConnectionAdded(nil, connection)
-	}
-	server.SetStream(stream)
 	server.BlockUntilConnect()
 	return server
 }
@@ -128,8 +129,8 @@ func disconnectConnection(connection *connectionservice.GurmsConnection) {
 }
 
 func (c *ConnectionService) newMemberConnectionListeners() []*connectionservice.MemberConnectionListener {
-	list := make([]*connectionservice.MemberConnectionListener, len(c.memberConnectionListeners))
-	for _, listener := range c.memberConnectionListeners {
+	list := make([]*connectionservice.MemberConnectionListener, len(c.memberConnectionListenerSuppliers))
+	for _, listener := range c.memberConnectionListenerSuppliers {
 		list = append(list, listener())
 	}
 	return list

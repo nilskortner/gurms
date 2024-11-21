@@ -1,7 +1,7 @@
 package dto
 
 type RpcResponse struct {
-	requestId int
-	result    any
-	rpcerror  error
+	RequestId int
+	Result    any
+	Rpcerror  error
 }

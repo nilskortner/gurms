@@ -1,29 +1,28 @@
 package connectionservice
 
 import (
+	"net"
 	"time"
-
-	grpc "google.golang.org/grpc"
 )
 
 type GurmsConnection struct {
 	NodeId                 string
-	Connection             *ConnectionChannels
+	Connection             *net.Conn
 	IsLocalNodeClient      bool
 	LastKeepaliveTimestamp int64
-	Listeners              []MemberConnectionListener
+	Listeners              []*MemberConnectionListener
 	IsClosing              bool
 }
 
 func NewGurmsConnection(
 	nodeid string,
-	connection *grpc.ClientConn,
+	connection *net.Conn,
 	isLocalNodeClient bool,
-	listeners []MemberConnectionListener,
+	listeners []*MemberConnectionListener,
 ) *GurmsConnection {
 	return &GurmsConnection{
 		NodeId:                 nodeid,
-		Connection:             NewConnectionChannels(),
+		Connection:             connection,
 		IsLocalNodeClient:      isLocalNodeClient,
 		Listeners:              listeners,
 		LastKeepaliveTimestamp: time.Now().UnixMilli(),
