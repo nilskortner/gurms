@@ -13,7 +13,6 @@ import (
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
-	"google.golang.org/grpc/connectivity"
 )
 
 var CONNECTIONLOGGER logger.Logger = factory.GetLogger("ConnectionService")
@@ -34,6 +33,8 @@ type ConnectionService struct {
 	hasConnectedToAllMembers          bool
 	serverProperties                  *connection.ConnectionServerProperties
 	server                            *connectionservice.ConnectionServer
+
+	cancelKeepAlive context.CancelFunc
 }
 
 func NewConnectionService(connectionProperties *connection.ConnectionProperties) *ConnectionService {
@@ -48,7 +49,9 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties)
 		reconnectInterval:                 int64(clientProperties.ReconnectIntervalSeconds),
 	}
 
-	service.startSendKeepAliveToConnectionsForeverRoutine(context.Background())
+	var ctx context.Context
+	ctx, service.cancelKeepAlive = context.WithCancel(context.Background())
+	service.startSendKeepAliveToConnectionsForeverRoutine(ctx)
 
 	service.server = service.setupServer()
 
@@ -61,7 +64,7 @@ func (c *ConnectionService) LazyInitConnectionService(discoveryService *Discover
 }
 
 func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
-	conn := func(conn *net.Conn) {
+	conn := func(conn net.Conn) {
 		connection := connectionservice.NewGurmsConnection("", conn, false, c.newMemberConnectionListeners())
 		c.OnMemberConnectionAdded(nil, connection)
 	}
@@ -96,10 +99,7 @@ func (c *ConnectionService) startSendKeepAliveToConnectionsForeverRoutine(ctx co
 }
 
 func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservice.GurmsConnection) {
-	conn := connection.Connection
-
-	if conn.GetState() == connectivity.Shutdown {
-		c.nodeIdToConnection.Remove(id)
+	if !c.nodeIdToConnection.Has(id) {
 		return
 	}
 	if !connection.IsLocalNodeClient {
@@ -107,7 +107,7 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 	}
 	now := time.Now().UnixMilli()
 	elapsedTime := now - connection.LastKeepaliveTimestamp
-	if elapsedTime > c.keepaliveIntervalMillis {
+	if elapsedTime > c.keepaliveTimeoutMillis {
 		CONNECTIONLOGGER.Warn("Reconnection to the member " + connection.NodeId + " due to keepalive timeout")
 		disconnectConnection(connection)
 		c.nodeIdToConnection.Remove(id)
@@ -117,7 +117,9 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 		return
 	}
 	// TODO: request
-	RequestResponse(id, request.KeepaliveRequest{})
+	keepAliveRequest := request.NewKeepAliveRequest()
+	rrChan := RequestResponse(id, keepAliveRequest)
+	subscribe(rrChan)
 }
 
 func disconnectConnection(connection *connectionservice.GurmsConnection) {

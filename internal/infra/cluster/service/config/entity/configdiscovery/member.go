@@ -1,6 +1,9 @@
 package configdiscovery
 
-import "gurms/internal/infra/cluster/node/nodetype"
+import (
+	"gurms/internal/infra/cluster/node/nodetype"
+	"time"
+)
 
 type Member struct {
 	Key              Key
@@ -10,7 +13,7 @@ type Member struct {
 	Nodeversion      *Nodeversion
 	IsSeed           bool
 	IsLeaderEligible bool
-	RegistrationDate Date
+	RegistrationDate time.Time
 	Priority         int
 	MemberHost       string
 	MemberPort       int
@@ -30,5 +33,5 @@ type MemberStatus struct {
 	hasJoinedCluster  bool
 	isHealthy         bool
 	isActive          bool
-	lastHeartbeatDate Date
+	lastHeartbeatDate time.Time
 }

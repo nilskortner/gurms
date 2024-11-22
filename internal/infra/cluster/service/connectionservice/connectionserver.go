@@ -1,6 +1,7 @@
 package connectionservice
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"gurms/internal/infra/logging/core/factory"
@@ -23,6 +24,8 @@ type ConnectionServer struct {
 	listener           net.Listener
 	connectionConsumer func(conn net.Conn)
 	port               int
+	ctx                context.Context
+	cancel             context.CancelFunc
 }
 
 func NewConnectionServer(
@@ -33,6 +36,7 @@ func NewConnectionServer(
 	tlsConfig *common.TlsProperties,
 	connection func(conn net.Conn),
 ) *ConnectionServer {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &ConnectionServer{
 		port:               -1,
 		host:               host,
@@ -41,6 +45,8 @@ func NewConnectionServer(
 		portCount:          portCount,
 		tlsConfig:          tlsConfig,
 		connectionConsumer: connection,
+		ctx:                ctx,
+		cancel:             cancel,
 	}
 }
 
@@ -75,8 +81,16 @@ func (c *ConnectionServer) BlockUntilConnect() {
 			for {
 				conn, err := listener.Accept()
 				if err != nil {
-					c.connectionConsumer(conn)
+					select {
+					case <-c.ctx.Done():
+						CONNECTIONSERVERLOGGER.Warn("connectionserver has been stopped.")
+						return
+					default:
+						CONNECTIONSERVERLOGGER.Error(err)
+					}
+					continue
 				}
+				c.connectionConsumer(conn)
 			}
 		}()
 
@@ -88,4 +102,6 @@ func (c *ConnectionServer) BlockUntilConnect() {
 }
 
 func (c *ConnectionServer) Shutdown() {
+	c.cancel()
+	c.listener.Close()
 }

@@ -7,7 +7,7 @@ import (
 
 type GurmsConnection struct {
 	NodeId                 string
-	Connection             *net.Conn
+	Connection             net.Conn
 	IsLocalNodeClient      bool
 	LastKeepaliveTimestamp int64
 	Listeners              []*MemberConnectionListener
@@ -16,7 +16,7 @@ type GurmsConnection struct {
 
 func NewGurmsConnection(
 	nodeid string,
-	connection *net.Conn,
+	connection net.Conn,
 	isLocalNodeClient bool,
 	listeners []*MemberConnectionListener,
 ) *GurmsConnection {
