@@ -18,6 +18,6 @@ func NewNode(
 		propertiesManager,
 		serviceAddressManager,
 		healthCheckManager)
-	node.start()
+	node.Start()
 	return node
 }

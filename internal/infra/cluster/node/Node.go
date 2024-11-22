@@ -39,7 +39,7 @@ type Node struct {
 	codecService          *codec.CodecService
 	connectionService     *connectionservice.ConnectionService
 	discoveryService      *DiscoveryService
-	grpcService           *rpcserv.RpcService
+	rpcService            *rpcserv.RpcService
 	idService             *IdService
 }
 

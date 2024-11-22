@@ -1,10 +1,10 @@
 package service
 
 import (
+	"fmt"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
-	"gurms/internal/infra/cluster/service/discovery"
 	"gurms/internal/infra/cluster/service/rpcservice"
 	"gurms/internal/infra/cluster/service/rpcservice/dto"
 	"gurms/internal/infra/logging/core/factory"
@@ -27,7 +27,7 @@ type RpcService struct {
 	defaultRequestTimeout int
 	codecService          *CodecService
 	connectionService     *ConnectionService
-	discoveryService      *discovery.DiscoveryService
+	discoveryService      *DiscoveryService
 	nodeIdToEndpoint      cmap.ConcurrentMap[string, *rpcservice.RpcEndpoint]
 }
 
@@ -47,19 +47,31 @@ func RequestResponse(request *dto.RpcRequest) {
 
 }
 
-func RequestResponseWithId(memberNodeId string, request dto.RpcRequest) {}
-
-func RequestResponseWithDuration(memberNodeId string, request dto.RpcRequest, timeout int64) {
-
+func RequestResponseWithId[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T]) chan T {
+	return RequestResponseWithGurmsConnection(r, memberNodeId, request, -1, nil)
 }
 
-func RequestResponseWithGurmsConnection(memberNodeId string, request dto.RpcRequest, timeout int64, connection *connectionservice.GurmsConnection) {
+func RequestResponseWithDuration[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64) chan T {
+}
+
+func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (chan T, error) {
+	if r.discoveryService.localMember.Key.NodeId == memberNodeId {
+		return rpcservice.RunRpcRequest()
+	}
+	endpoint, err := r.getOrCreateEndpointWithConnection(memberNodeId, connection)
+	if err != nil {
+		request.Release()
+		return nil, err
+	}
+	return requestResponse0(endpoint, request, timeout), nil
 }
 
 func RequestResponseWithRpcEndpoint()
 
 // internal implentations
-func requestResponse0() {}
+func requestResponse0[T comparable]() chan T {
+
+}
 
 func OnConnectionOpened() {
 
@@ -103,25 +115,34 @@ func (r *RpcMemberConnectionListener) onResponseReceived(response dto.RpcRespons
 	r.endpoint.HandleResponse(response)
 }
 
-func (r *RpcMemberConnectionListener) getOrCreateEndpoint(nodeId string, connection *connectionservice.GurmsConnection) *rpcservice.RpcEndpoint {
-	if nodeId == r.rpcService.discoveryService.localMember.Key.NodeId {
-		panic("The target node ID of RPC endpoint cannot be the local node ID: ")
-	}
-	endpoint, success := r.rpcService.nodeIdToEndpoint.Get(nodeId)
-	if success == true && (connection == nil || connection == endpoint.Connection) {
-		return endpoint
-	}
-	endpoint = r.createEndpoint(nodeId, connection)
-	r.rpcService.nodeIdToEndpoint.SetIfAbsent(nodeId, endpoint)
-	return endpoint
+func (r *RpcService) getOrCreateEndpoint() (*rpcservice.RpcEndpoint, error) {
+
 }
 
-func (r *RpcMemberConnectionListener) createEndpoint(nodeId string, connection *connectionservice.GurmsConnection) *rpcservice.RpcEndpoint {
-	if connection == nil {
-		connection, _ = r.rpcService.connectionService.nodeIdToConnection.Get(nodeId)
-		if connection == nil {
+func (r *RpcService) getOrCreateEndpointWithConnection(nodeId string, connection *connectionservice.GurmsConnection) (*rpcservice.RpcEndpoint, error) {
+	if nodeId == r.discoveryService.localMember.Key.NodeId {
+		return nil, fmt.Errorf("The target node ID of RPC endpoint cannot be the local node ID: " + nodeId)
+	}
+	endpoint, success := r.nodeIdToEndpoint.Get(nodeId)
+	if success == true && (connection == nil || connection == endpoint.Connection) {
+		return endpoint, nil
+	}
+	var err error
+	endpoint, err = r.createEndpoint(nodeId, connection)
+	if err != nil {
+		return nil, err
+	}
+	r.nodeIdToEndpoint.SetIfAbsent(nodeId, endpoint)
+	return endpoint, nil
+}
 
+func (r *RpcService) createEndpoint(nodeId string, connection *connectionservice.GurmsConnection) (*rpcservice.RpcEndpoint, error) {
+	if connection == nil {
+		var ok bool
+		connection, ok = r.connectionService.nodeIdToConnection.Get(nodeId)
+		if !ok {
+			return nil, fmt.Errorf("the connection to the member " + nodeId + " does not exist")
 		}
 	}
-	return rpcservice.NewRpcEndpoint(nodeId, connection)
+	return rpcservice.NewRpcEndpoint(nodeId, connection), nil
 }

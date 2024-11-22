@@ -1,7 +1,7 @@
 package dto
 
-type RpcResponse struct {
+type RpcResponse[T comparable] struct {
 	RequestId int
-	Result    any
+	Result    T
 	Rpcerror  error
 }

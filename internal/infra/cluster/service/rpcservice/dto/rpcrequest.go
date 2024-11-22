@@ -5,7 +5,7 @@ import (
 	"gurms/internal/infra/cluster/service/connectionservice"
 )
 
-type RpcRequest struct {
+type RpcRequest[T comparable] struct {
 	connection  *connectionservice.GurmsConnection
 	fromNodeId  string
 	requestId   int
@@ -13,6 +13,10 @@ type RpcRequest struct {
 	boundBuffer *bytes.Buffer
 }
 
-func (r *RpcRequest) Init(connection *connectionservice.GurmsConnection, fromNodeId string) {
+func (r *RpcRequest[T]) Init(connection *connectionservice.GurmsConnection, fromNodeId string) {
 
+}
+
+func (r *RpcRequest[T]) Release() {
+	r.boundBuffer = nil
 }
