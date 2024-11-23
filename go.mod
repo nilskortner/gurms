@@ -5,6 +5,7 @@ go 1.21.3
 require github.com/rs/zerolog v1.33.0
 
 require (
+	github.com/cornelk/hashmap v1.0.8 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
