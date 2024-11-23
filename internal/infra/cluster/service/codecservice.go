@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"fmt"
 	"gurms/internal/infra/cluster/service/codec/pool"
 	"gurms/internal/infra/cluster/service/codec/pool/impl"
 	"gurms/internal/infra/io"
@@ -16,9 +17,10 @@ func NewCodecService() *CodecService {
 	return &CodecService{}
 }
 
-func Serialize(data any) *bytes.Buffer {
+func Serialize(data any) (*bytes.Buffer, error) {
 	var buf *bytes.Buffer
 	var stream *io.Stream
+	var err error
 
 	switch data := data.(type) {
 	case bool:
@@ -67,7 +69,7 @@ func Serialize(data any) *bytes.Buffer {
 		stream = io.NewStream(buf)
 		codecPicked.Write(stream, data)
 	default:
-		panic("No Codec for this Type")
+		err = fmt.Errorf("No Codec for this Type")
 	}
-	return buf
+	return buf, err
 }

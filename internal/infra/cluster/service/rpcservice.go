@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"fmt"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
@@ -10,6 +11,7 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/cluster"
+	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 )
@@ -24,7 +26,7 @@ const (
 
 type RpcService struct {
 	nodeType              nodetype.NodeType
-	defaultRequestTimeout int
+	defaultRequestTimeout time.Duration
 	codecService          *CodecService
 	connectionService     *ConnectionService
 	discoveryService      *DiscoveryService
@@ -34,7 +36,7 @@ type RpcService struct {
 func NewRpcService(nodeType nodetype.NodeType, rpcProperties *cluster.RpcProperties) *RpcService {
 	return &RpcService{
 		nodeType:              nodeType,
-		defaultRequestTimeout: rpcProperties.JobTimeoutMillis,
+		defaultRequestTimeout: time.Duration(int64(rpcProperties.JobTimeoutMillis)) * time.Millisecond,
 		nodeIdToEndpoint:      cmap.New[*rpcservice.RpcEndpoint](),
 	}
 }
@@ -47,30 +49,52 @@ func RequestResponse(request *dto.RpcRequest) {
 
 }
 
-func RequestResponseWithId[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T]) chan T {
+func RequestResponseWithId[T comparable](r *RpcService, memberNodeId string, request *dto.RpcRequest[T]) (T, error) {
 	return RequestResponseWithGurmsConnection(r, memberNodeId, request, -1, nil)
 }
 
 func RequestResponseWithDuration[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64) chan T {
 }
 
-func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (chan T, error) {
+func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request *dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (T, error) {
 	if r.discoveryService.localMember.Key.NodeId == memberNodeId {
-		return rpcservice.RunRpcRequest()
+		value, err := rpcservice.RunRpcRequest[T](request, nil, memberNodeId)
+		if err != nil {
+			var zero T
+			return zero, err
+		} else {
+			return value, nil
+		}
 	}
 	endpoint, err := r.getOrCreateEndpointWithConnection(memberNodeId, connection)
 	if err != nil {
 		request.Release()
-		return nil, err
+		var zero T
+		return zero, err
 	}
-	return requestResponse0(endpoint, request, timeout), nil
+	return requestResponse0(r, endpoint, request, timeout)
 }
 
 func RequestResponseWithRpcEndpoint()
 
 // internal implentations
-func requestResponse0[T comparable]() chan T {
-
+func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpoint, request *dto.RpcRequest[T], timeout int64) (T, error) {
+	err := assertCurrentNodeIsAllowedToSend(r, request)
+	if err != nil {
+		request.Release()
+		var zero T
+		return zero, err
+	}
+	if timeout == -1 {
+		timeout = r.defaultRequestTimeout.Milliseconds()
+	}
+	var requestBody *bytes.Buffer
+	requestBody, err = Serialize(request)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return rpcservice.SendRequest(endpoint, request, requestBody)
 }
 
 func OnConnectionOpened() {
@@ -145,4 +169,24 @@ func (r *RpcService) createEndpoint(nodeId string, connection *connectionservice
 		}
 	}
 	return rpcservice.NewRpcEndpoint(nodeId, connection), nil
+}
+
+func assertCurrentNodeIsAllowedToSend[T comparable](r *RpcService, request *dto.RpcRequest[T]) error {
+	typ := request.NodeTypeToRequest()
+	var allowed bool
+	switch typ {
+	case dto.BOTH:
+		allowed = true
+	case dto.GATEWAY:
+		allowed = r.nodeType == nodetype.GATEWAY
+	case dto.SERVICE:
+		allowed = r.nodeType == nodetype.SERVICE
+	}
+	if !allowed {
+		return fmt.Errorf("the node type of the current server is: %s, which cannot send the request \"%s\" that requires the node type: %s",
+			r.nodeType.GetDisplayName(),
+			request.Name(),
+			typ)
+	}
+	return nil
 }

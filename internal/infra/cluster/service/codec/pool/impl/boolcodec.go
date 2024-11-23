@@ -20,7 +20,7 @@ func (b BoolCodec) InitialCapacity(data bool) int {
 }
 
 func (b BoolCodec) Write(output *io.Stream, data bool) {
-	//output.WriteBoolean(data)
+	output.WriteBoolean(data)
 }
 
 func (b BoolCodec) Read(input *io.Stream) {

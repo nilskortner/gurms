@@ -1,12 +1,12 @@
 package rpcservice
 
 import (
+	"bytes"
+	"fmt"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/rpcservice/dto"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
-
-	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
 var RPCENDPOINTLOGGER logger.Logger = factory.GetLogger("RpcEndpoint")
@@ -17,7 +17,7 @@ const (
 	INITAL_CAPACITY_PERCENTAGE = 10
 )
 
-var pendingRequestMap cmap.ConcurrentMap = cmap.New()[]
+//var pendingRequestMap cmap.ConcurrentMap = cmap.New()[]
 
 type RpcEndpoint struct {
 	NodeId     string
@@ -26,8 +26,19 @@ type RpcEndpoint struct {
 
 func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection) *RpcEndpoint {
 	return &RpcEndpoint{
-		nodeId: nodeId,
+		NodeId:     nodeId,
+		Connection: connection,
 	}
+}
+
+func SendRequest[T comparable](endpoint *RpcEndpoint, request *dto.RpcRequest[T], requestBody *bytes.Buffer) (T, error) {
+	conn := endpoint.Connection.Connection
+	if requestBody == nil {
+		err := fmt.Errorf("the request body has been released")
+		var zero T
+		return zero, err
+	}
+	if conn.
 }
 
 func (r *RpcEndpoint) HandleResponse(response *dto.RpcResponse) {
