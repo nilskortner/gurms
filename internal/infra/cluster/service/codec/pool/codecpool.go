@@ -3,6 +3,7 @@ package pool
 import (
 	"fmt"
 	"gurms/internal/infra/cluster/service/codec/pool/impl"
+	"gurms/internal/infra/cluster/service/rpcservice/dto"
 )
 
 var ID_TO_CODEC map[int]Codec
@@ -44,5 +45,33 @@ func register(codec Codec) error {
 	} else {
 		ID_TO_CODEC[id] = codec
 		return nil
+	}
+}
+
+func GetCodec(value any) Codec {
+
+	switch value.(type) {
+	case bool:
+		return ID_TO_CODEC[impl.PRIMITIVE_BOOL]
+	case byte:
+		return ID_TO_CODEC[impl.PRIMITVE_BYTE]
+	case rune:
+		return ID_TO_CODEC[impl.PRIMITIVE_RUNE]
+	case float64:
+		return ID_TO_CODEC[impl.PRIMITIVE_FLOAT64]
+	case float32:
+		return ID_TO_CODEC[impl.PRIMITIVE_FLOAT32]
+	case int:
+		return ID_TO_CODEC[impl.PRIMITIVE_INT]
+	case int64:
+		return ID_TO_CODEC[impl.PRIMITIVE_INT64]
+	case int16:
+		return ID_TO_CODEC[impl.PRIMITIVE_INT16]
+	case string:
+		return ID_TO_CODEC[impl.STRING]
+	case *dto.RpcRequest[T]:
+		return ID_TO_CODEC[impl.RPC_KEEPALIVE]
+	default:
+		panic("no codec for this type")
 	}
 }

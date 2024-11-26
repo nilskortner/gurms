@@ -23,7 +23,7 @@ const (
 )
 
 var initSize int = int(EXPECTED_MAX_QPS * EXPECTED_AVERAGE_RTT * (INITAL_CAPACITY_PERCENTAGE / 100.0))
-var pendingRequestMap *nonblockingmap.Map[int64, int] = nonblockingmap.NewSized[int64, int](uintptr(initSize))
+var pendingRequestMap *nonblockingmap.Map[int64, struct{}] = nonblockingmap.NewSized[int64, struct{}](uintptr(initSize))
 
 type RpcEndpoint struct {
 	NodeId     string
@@ -37,37 +37,37 @@ func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection
 	}
 }
 
-func SendRequest[T comparable](endpoint *RpcEndpoint, request *dto.RpcRequest[T], requestBody *bytes.Buffer) (T, error) {
+func SendRequest[T comparable](endpoint *RpcEndpoint, request *dto.RpcRequest[T], requestBody *bytes.Buffer) error {
 	conn := endpoint.Connection.Connection
 	if requestBody == nil {
 		err := fmt.Errorf("the request body has been released")
-		var zero T
-		return zero, err
+		return err
 	}
 	if conn == nil {
 		err := fmt.Errorf("connection already closed")
-		var zero T
-		return zero, err
+		return err
 	}
 	for {
 		requestId := generateId()
-		_, ok := pendingRequestMap.GetOrInsert(requestId, value)
+		_, ok := pendingRequestMap.GetOrInsert(requestId, struct{}{})
 		if ok {
 			continue
 		}
 		request.RequestId = requestId
-		var buffer *bytes.Buffer
 
-		buffer = channel.INSTANCE.EncodeRequest(request, requestBody)
-
-		_, err := conn.Write(buffer.Bytes())
+		buffer, err := channel.EncodeRequest(request, requestBody)
 		if err != nil {
-			var zero T
-			return zero, err
+			buffer = nil
+			return resolveRequest(requestId, err)
 		}
 
+		_, err = conn.Write(buffer.Bytes())
+		if err != nil {
+			return resolveRequest(requestId, err)
+		}
 		break
 	}
+	return nil
 }
 
 func generateId() int64 {
@@ -83,15 +83,26 @@ func generateId() int64 {
 }
 
 func HandleResponse[T comparable](response *dto.RpcResponse[T]) {
-	resolveRequest(response.RequestId, response.Result, response.Rpcerror)
+	resolveRequest(response.RequestId, response.Rpcerror)
 }
 
-func resolveRequest[T comparable](requestId int64, response T, err error) {
-	ok := pendingRequestMap.Del(requestId)
+func resolveRequest(requestId int64, err error) error {
+	_, ok := pendingRequestMap.Get(requestId)
 	if !ok {
-		message := fmt.Sprint("Could not find a pending request with the ID %s for the response: %#v",
-			requestId, response)
+		message := fmt.Sprint("Could not find a pending request with the ID %s",
+			requestId)
 		RPCENDPOINTLOGGER.Warn(message)
-		return
+		return nil
 	}
+	ok = pendingRequestMap.Del(requestId)
+	if !ok {
+		message := fmt.Sprint("Could not delete request with the ID %s",
+			requestId)
+		RPCENDPOINTLOGGER.Warn(message)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }

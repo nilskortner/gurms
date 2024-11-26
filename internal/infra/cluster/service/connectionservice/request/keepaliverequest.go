@@ -12,6 +12,6 @@ type KeepaliveRequest[T comparable] struct {
 	Node node.Node
 }
 
-func NewKeepAliveRequest() *KeepaliveRequest {
-	return &KeepaliveRequest{}
+func NewKeepAliveRequest[T comparable]() *KeepaliveRequest[T] {
+	return &KeepaliveRequest[T]{}
 }
