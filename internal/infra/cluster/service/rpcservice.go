@@ -45,18 +45,18 @@ func NewRpcService(nodeType nodetype.NodeType, rpcProperties *cluster.RpcPropert
 
 // }
 
-func RequestResponse(request *dto.RpcRequest) {
+func RequestResponse(request dto.RpcRequest) {
 
 }
 
-func RequestResponseWithId[T comparable](r *RpcService, memberNodeId string, request *dto.RpcRequest[T]) (T, error) {
+func RequestResponseWithId[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T]) (T, error) {
 	return RequestResponseWithGurmsConnection(r, memberNodeId, request, -1, nil)
 }
 
 func RequestResponseWithDuration[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64) chan T {
 }
 
-func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request *dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (T, error) {
+func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (T, error) {
 	if r.discoveryService.localMember.Key.NodeId == memberNodeId {
 		value, err := rpcservice.RunRpcRequest[T](request, nil, memberNodeId)
 		if err != nil {
@@ -78,7 +78,7 @@ func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeI
 func RequestResponseWithRpcEndpoint()
 
 // internal implentations
-func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpoint, request *dto.RpcRequest[T], timeout int64) (T, error) {
+func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpoint, request dto.RpcRequest[T], timeout int64) (T, error) {
 	err := assertCurrentNodeIsAllowedToSend(r, request)
 	if err != nil {
 		request.Release()
@@ -171,7 +171,7 @@ func (r *RpcService) createEndpoint(nodeId string, connection *connectionservice
 	return rpcservice.NewRpcEndpoint(nodeId, connection), nil
 }
 
-func assertCurrentNodeIsAllowedToSend[T comparable](r *RpcService, request *dto.RpcRequest[T]) error {
+func assertCurrentNodeIsAllowedToSend[T comparable](r *RpcService, request dto.RpcRequest[T]) error {
 	typ := request.NodeTypeToRequest()
 	var allowed bool
 	switch typ {

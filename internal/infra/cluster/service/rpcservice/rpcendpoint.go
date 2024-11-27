@@ -37,7 +37,7 @@ func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection
 	}
 }
 
-func SendRequest[T comparable](endpoint *RpcEndpoint, request *dto.RpcRequest[T], requestBody *bytes.Buffer) error {
+func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T], requestBody *bytes.Buffer) error {
 	conn := endpoint.Connection.Connection
 	if requestBody == nil {
 		err := fmt.Errorf("the request body has been released")
@@ -53,7 +53,7 @@ func SendRequest[T comparable](endpoint *RpcEndpoint, request *dto.RpcRequest[T]
 		if ok {
 			continue
 		}
-		request.RequestId = requestId
+		request.SetRequestId(requestId)
 
 		buffer, err := channel.EncodeRequest(request, requestBody)
 		if err != nil {

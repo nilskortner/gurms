@@ -6,16 +6,19 @@ import (
 	"time"
 )
 
-type RpcFunctions[T comparable] interface {
+type RpcRequest[T comparable] interface {
 	IsAsync() bool
 	CallAsync() T
 	Call() T
 	NodeTypeToRequest() NodeTypeToHandleRpc
 	Name() string
+	Init(connection *connectionservice.GurmsConnection, fromNodeId string)
+	Release()
+	GetRequestId() int64
+	SetRequestId(int64)
 }
 
-type RpcRequest[T comparable] struct {
-	RpcFunctions[T]
+type RpcBaseRequest struct {
 	Connection  *connectionservice.GurmsConnection
 	FromNodeId  string
 	RequestId   int64
@@ -23,7 +26,7 @@ type RpcRequest[T comparable] struct {
 	BoundBuffer *bytes.Buffer
 }
 
-func (r *RpcRequest[T]) Init(connection *connectionservice.GurmsConnection, fromNodeId string) {
+func (r *RpcBaseRequest) Init(connection *connectionservice.GurmsConnection, fromNodeId string) {
 	r.Connection = connection
 	r.FromNodeId = fromNodeId
 	r.RequestId = -1
@@ -31,6 +34,14 @@ func (r *RpcRequest[T]) Init(connection *connectionservice.GurmsConnection, from
 	r.BoundBuffer = bytes.NewBuffer(make([]byte, 0))
 }
 
-func (r *RpcRequest[T]) Release() {
+func (r *RpcBaseRequest) Release() {
 	r.BoundBuffer = nil
+}
+
+func (r *RpcBaseRequest) GetRequestId() int64 {
+	return r.RequestId
+}
+
+func (r *RpcBaseRequest) SetRequestId(requestId int64) {
+	r.RequestId = requestId
 }

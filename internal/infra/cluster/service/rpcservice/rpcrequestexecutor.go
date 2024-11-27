@@ -6,7 +6,7 @@ import (
 )
 
 func RunRpcRequest[T comparable](
-	rpcRequest *dto.RpcRequest[T],
+	rpcRequest dto.RpcRequest[T],
 	connection *connectionservice.GurmsConnection,
 	fromNodeId string,
 ) (T, error) {

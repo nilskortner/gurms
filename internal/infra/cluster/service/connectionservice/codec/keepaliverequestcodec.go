@@ -3,23 +3,26 @@ package codec
 import (
 	"gurms/internal/infra/cluster/service/codec/pool/impl"
 	"gurms/internal/infra/cluster/service/rpcservice/dto"
-	"gurms/internal/infra/cluster/service/rpcservice/rpccodec"
+	"gurms/internal/infra/io"
 )
 
 const TRACE_ID_LENGTH = 8
 
-type KeepaliveRequestCodec[T comparable] struct {
-	*rpccodec.RpcRequestCodec[T]
+type KeepaliveRequestCodec struct {
 }
 
-func (r *KeepaliveRequestCodec[T]) GetCodecId() int {
+func (r *KeepaliveRequestCodec) GetCodecId() int {
 	return impl.RPC_KEEPALIVE
 }
 
-func (r *KeepaliveRequestCodec[T]) InitialCapacity(data *dto.RpcRequest[T]) int {
+func (r *KeepaliveRequestCodec) InitialCapacity(data *dto.RpcBaseRequest) int {
 	return TRACE_ID_LENGTH
 }
 
-// func (r *KeepaliveRequestCodec[T]) ReadRequestData(input *CodecStreamInput) *request.KeepaliveRequest[T] {
-// 	return request.NewKeepAliveRequest[T]()
-// }
+func (k *KeepaliveRequestCodec) Write(output *io.Stream, data string) {
+	//output.
+}
+
+func (k *KeepaliveRequestCodec) Read(input *io.Stream) {
+	//input.
+}

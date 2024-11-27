@@ -3,7 +3,7 @@ package pool
 import (
 	"fmt"
 	"gurms/internal/infra/cluster/service/codec/pool/impl"
-	"gurms/internal/infra/cluster/service/rpcservice/dto"
+	"gurms/internal/infra/cluster/service/connectionservice/codec"
 )
 
 var ID_TO_CODEC map[int]Codec
@@ -33,6 +33,8 @@ func Init() {
 	register(int16Codec)
 	stringCodec := impl.NewStringCodec()
 	register(stringCodec)
+	keepaliveCodec := &codec.KeepaliveRequestCodec{}
+	register(keepaliveCodec)
 
 	// Datastructures
 }
@@ -69,8 +71,6 @@ func GetCodec(value any) Codec {
 		return ID_TO_CODEC[impl.PRIMITIVE_INT16]
 	case string:
 		return ID_TO_CODEC[impl.STRING]
-	case *dto.RpcRequest[T]:
-		return ID_TO_CODEC[impl.RPC_KEEPALIVE]
 	default:
 		panic("no codec for this type")
 	}

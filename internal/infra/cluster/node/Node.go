@@ -3,9 +3,8 @@ package node
 import (
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
-	"gurms/internal/infra/cluster/service/codec"
+	"gurms/internal/infra/cluster/service"
 	"gurms/internal/infra/cluster/service/connectionservice"
-	"gurms/internal/infra/cluster/service/rpcserv"
 	"gurms/internal/infra/healthcheck"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -34,13 +33,13 @@ type Node struct {
 	zone      string
 	name      string
 
-	sharedConfigService   *SharedConfigService
-	sharedPropertyService *SharedPropertyService
-	codecService          *codec.CodecService
-	connectionService     *connectionservice.ConnectionService
-	discoveryService      *DiscoveryService
-	rpcService            *rpcserv.RpcService
-	idService             *IdService
+	SharedConfigService   *SharedConfigService
+	SharedPropertyService *SharedPropertyService
+	CodecService          *codec.CodecService
+	ConnectionService     *service.ConnectionService
+	DiscoveryService      *DiscoveryService
+	RpcService            *rpcserv.RpcService
+	IdService             *IdService
 }
 
 func NewNode(
@@ -121,3 +120,7 @@ func InitNodeId(id string) string {
 func (n *Node) Start() {
 	a
 }
+
+// for interface Node
+
+func GetNodeID()

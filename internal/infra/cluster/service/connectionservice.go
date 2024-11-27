@@ -117,9 +117,13 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 		return
 	}
 	// TODO: request
-	keepAliveRequest := request.NewKeepAliveRequest()
-	rrChan := RequestResponse(id, keepAliveRequest)
-	subscribe(rrChan)
+	keepAliveRequest := request.NewKeepAliveRequest[int]()
+	err := RequestResponseWithId(c.rpcService, id, keepAliveRequest)
+	if err != nil {
+		CONNECTIONLOGGER.WarnWithArgs("failed to send a keepalive request to the member: "+id, err)
+	} else {
+		connection.LastKeepaliveTimestamp = time.Now().UnixMilli()
+	}
 }
 
 func disconnectConnection(connection *connectionservice.GurmsConnection) {
