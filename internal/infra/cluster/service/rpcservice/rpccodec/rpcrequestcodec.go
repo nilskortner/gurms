@@ -14,7 +14,7 @@ func NewRpcRequestCodec[T comparable]() *RpcRequestCodec[T] {
 }
 
 func (r *RpcRequestCodec[T]) GetCodecId() int {
-	return
+	return 0
 }
 
 func (r *RpcRequestCodec[T]) Write(output *io.Stream, data bool) {

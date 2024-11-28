@@ -3,6 +3,7 @@ package service
 import (
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
+	"gurms/internal/infra/cluster/service/discovery"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"time"
@@ -11,9 +12,9 @@ import (
 var DISCOVERYLOGGER logger.Logger = factory.GetLogger("Discovery")
 
 type DiscoveryService struct {
-	connectionService      *ConnectionService
-	localMember            *configdiscovery.Member
-	localNodeStatusManager *LocalNodeStatusManager
+	ConnectionService      *ConnectionService
+	LocalMember            *configdiscovery.Member
+	LocalNodeStatusManager *discovery.LocalNodeStatusManager
 }
 
 func NewDiscoveryService(

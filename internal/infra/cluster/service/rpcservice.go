@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"fmt"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
@@ -45,7 +44,7 @@ func NewRpcService(nodeType nodetype.NodeType, rpcProperties *cluster.RpcPropert
 
 // }
 
-func RequestResponse(request dto.RpcRequest) {
+func RequestResponse[T comparable](request dto.RpcRequest[T]) {
 
 }
 
@@ -88,13 +87,7 @@ func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpo
 	if timeout == -1 {
 		timeout = r.defaultRequestTimeout.Milliseconds()
 	}
-	var requestBody *bytes.Buffer
-	requestBody, err = Serialize(request)
-	if err != nil {
-		var zero T
-		return zero, err
-	}
-	return rpcservice.SendRequest(endpoint, request, requestBody)
+	return rpcservice.SendRequest(endpoint, request)
 }
 
 func OnConnectionOpened() {

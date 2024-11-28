@@ -1,7 +1,7 @@
 package rpcservice
 
 import (
-	"bytes"
+	"encoding/gob"
 	"fmt"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/rpcservice/channel"
@@ -37,16 +37,14 @@ func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection
 	}
 }
 
-func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T], requestBody *bytes.Buffer) error {
+func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T]) (T, error) {
 	conn := endpoint.Connection.Connection
-	if requestBody == nil {
-		err := fmt.Errorf("the request body has been released")
-		return err
-	}
 	if conn == nil {
+		var zero T
 		err := fmt.Errorf("connection already closed")
-		return err
+		return zero, err
 	}
+	var response T
 	for {
 		requestId := generateId()
 		_, ok := pendingRequestMap.GetOrInsert(requestId, struct{}{})
@@ -55,20 +53,31 @@ func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T],
 		}
 		request.SetRequestId(requestId)
 
-		buffer, err := channel.EncodeRequest(request, requestBody)
+		buffer, err := channel.EncodeRequest(request)
 		if err != nil {
 			buffer = nil
-			return resolveRequest(requestId, err)
+			var zero T
+			return zero, resolveRequest(requestId, err)
 		}
-
 		_, err = conn.Write(buffer.Bytes())
 		if err != nil {
-			return resolveRequest(requestId, err)
+			var zero T
+			return zero, resolveRequest(requestId, err)
+		}
+		decoder := gob.NewDecoder(conn)
+		err = decoder.Decode(&response)
+		if err != nil {
+			var zero T
+			return zero, fmt.Errorf("error decoding response")
 		}
 		break
 	}
-	return nil
+	return response, nil
 }
+
+func sendRequest() {}
+
+func sendRequestAsync() {}
 
 func generateId() int64 {
 	var id int64

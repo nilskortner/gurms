@@ -35,3 +35,15 @@ type MemberStatus struct {
 	isActive          bool
 	lastHeartbeatDate time.Time
 }
+
+func (m *Member) IsSameNode(member *Member) bool {
+	return m.IsSameId(member) || m.IsSameAddress(member)
+}
+
+func (m *Member) IsSameId(member *Member) bool {
+	return m.Key == member.Key
+}
+
+func (m *Member) IsSameAddress(member *Member) bool {
+	return m.MemberHost == member.MemberHost && m.MemberPort == member.MemberPort
+}
