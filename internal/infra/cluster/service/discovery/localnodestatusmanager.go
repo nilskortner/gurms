@@ -13,7 +13,10 @@ var LOCALNODESTATUSMANAGERLOGGER logger.Logger = factory.GetLogger("LocalNodeSta
 type LocalNodeStatusManager struct {
 	LocalMember             *configdiscovery.Member
 	IsLocalNodeRegistered   bool
+	IsClosing               bool
 	HeartbeatInterval       time.Time
 	HeartbeatIntervalMIllis int64
 	IsHealthStatusUpdating  atomic.Bool
 }
+
+//TODO

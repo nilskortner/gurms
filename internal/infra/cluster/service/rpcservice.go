@@ -56,7 +56,7 @@ func RequestResponseWithDuration[T comparable](r *RpcService, memberNodeId strin
 }
 
 func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (T, error) {
-	if r.discoveryService.localMember.Key.NodeId == memberNodeId {
+	if r.discoveryService.LocalMember.Key.NodeId == memberNodeId {
 		value, err := rpcservice.RunRpcRequest[T](request, nil, memberNodeId)
 		if err != nil {
 			var zero T
@@ -137,7 +137,7 @@ func (r *RpcService) getOrCreateEndpoint() (*rpcservice.RpcEndpoint, error) {
 }
 
 func (r *RpcService) getOrCreateEndpointWithConnection(nodeId string, connection *connectionservice.GurmsConnection) (*rpcservice.RpcEndpoint, error) {
-	if nodeId == r.discoveryService.localMember.Key.NodeId {
+	if nodeId == r.discoveryService.LocalMember.Key.NodeId {
 		return nil, fmt.Errorf("The target node ID of RPC endpoint cannot be the local node ID: " + nodeId)
 	}
 	endpoint, success := r.nodeIdToEndpoint.Get(nodeId)

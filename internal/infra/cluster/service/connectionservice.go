@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
@@ -9,9 +10,11 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/logging/core/model/loglevel"
+	"gurms/internal/infra/netutil"
 	"gurms/internal/infra/property/env/common"
 	"gurms/internal/infra/property/env/common/cluster/connection"
 	"net"
+	"sync"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -36,6 +39,7 @@ type ConnectionService struct {
 	serverProperties                  *connection.ConnectionServerProperties
 	server                            *connectionservice.ConnectionServer
 
+	mu              sync.Mutex
 	cancelKeepAlive context.CancelFunc
 }
 
@@ -70,10 +74,23 @@ func (c *ConnectionService) IsMemberConnected(memberId string) bool {
 	if !ok || connection == nil {
 		return false
 	}
-	if !connection.IsClosed() && !connection.IsClosing {
+	if !connection.IsClosed.Load() && !connection.IsClosing {
 		return true
 	}
 	return false
+}
+
+func (c *ConnectionService) updateHasConnectedToAllMembers(allMemberNodeIds cmap.ConcurrentMap[string, *configdiscovery.Member]) {
+	connectedToAllMembers := true
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for nodeId := range allMemberNodeIds.Items() {
+		if !c.IsMemberConnected(nodeId) && !(c.discoveryService.LocalNodeStatusManager.LocalMember.Key.NodeId == nodeId) {
+			connectedToAllMembers = false
+			break
+		}
+	}
+	c.hasConnectedToAllMembers = connectedToAllMembers
 }
 
 func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
@@ -94,6 +111,21 @@ func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
 	return server
 }
 
+func (c *ConnectionService) initTcpConnection(host string, port int) (net.Conn, error) {
+	address := fmt.Sprintf("%s:%d", host, port)
+	var conn net.Conn
+	var err error
+
+	tlsConfig := netutil.CreateTlsConfig(c.serverProperties.Tls, false)
+
+	if c.serverProperties.Tls.Enabled {
+		conn, err = tls.Dial("tcp", address, tlsConfig)
+	} else {
+		conn, err = net.Dial("tcp", address)
+	}
+	return conn, err
+}
+
 func (c *ConnectionService) connectMemberUntilSucceedOrRemoved(member *configdiscovery.Member) {
 	nodeId := member.Key.NodeId
 	_, ok := c.connectingMembers.Get(nodeId)
@@ -112,9 +144,54 @@ func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0(member *configdi
 		"[Client] Connecting to the member: {id=%s}, host={%s}, port={%s}. Retry times: %s",
 		nodeId, member.MemberHost, member.MemberPort, mappedId)
 	CONNECTIONLOGGER.InfoWithArgs(message)
-	conn := initTcpConnection(member.MemberHost, member.MemberPort)
-	connection := connectionservice.NewGurmsConnection()
+	conn, err := c.initTcpConnection(member.MemberHost, member.MemberPort)
+	if err != nil {
+		connectMemberUntilSucceedOrRemoved0Retry()
+		return
+	}
+	connection := connectionservice.NewGurmsConnection(
+		nodeId, conn, true, c.newMemberConnectionListeners())
 	c.OnMemberConnectionAdded(member, connection)
+	localNodeId := c.discoveryService.LocalMember.Key.NodeId
+	message = fmt.Sprint(
+		"[Client] Sending an opening handshake request to the member: {id=%s}, host={%s}, port={%s}",
+		nodeId, member.MemberHost, member.MemberPort)
+	CONNECTIONLOGGER.InfoWithArgs(message)
+	handshakeRequest := request.NewOpeningHandshakeRequest[byte](localNodeId)
+	code, err := RequestResponseWithGurmsConnection[byte](c.rpcService, nodeId, handshakeRequest, -1, connection)
+	if err != nil {
+		connectMemberUntilSucceedOrRemoved0LogError(nodeId, member.MemberHost, member.MemberPort, connection, err)
+		return
+	}
+	if code == request.RESPONSE_CODE_SUCCESS {
+		c.OnMemberConnectionHandshakeCompleted(member, connection, true)
+	} else {
+		err = fmt.Errorf("failure code: " + string(code))
+		connectMemberUntilSucceedOrRemoved0Retry()
+	}
+}
+
+func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0Retry(
+	nodeId string, host string, port string, err error) {
+	if !c.discoveryService.IsKnownMember(nodeId) {
+		return
+	}
+	retryTimes, _ := c.nodeIdToConnectionRetries.Get(nodeId)
+	message := fmt.Sprint("[Client] Failed to connect to member: {id=%s, host=%s, port=%s}. Retry times: %d",
+		nodeId, host, port, retryTimes)
+	CONNECTIONLOGGER.ErrorWithMessage(message, err)
+	retryTimes++
+	c.nodeIdToConnectionRetries.Set(nodeId, retryTimes)
+	connectionRetryScheduler.schedule()
+}
+
+func connectMemberUntilSucceedOrRemoved0LogError(nodeId string,
+	host string, port int, connection *connectionservice.GurmsConnection, err error) {
+	message := fmt.Sprint("[Client] Failed to complete the opening handshake with the the member:"+
+		"{id=%s}, host={%s}, port={%s}. Closing Connection to reconnect",
+		nodeId, host, port)
+	CONNECTIONLOGGER.ErrorWithMessage(message, err)
+	disconnectConnection(connection)
 }
 
 func (c *ConnectionService) startSendKeepAliveToConnectionsForeverRoutine(ctx context.Context) {
@@ -167,6 +244,10 @@ func disconnectConnection(connection *connectionservice.GurmsConnection) {
 	if err != nil {
 		CONNECTIONLOGGER.ErrorWithMessage("error closing connection "+connection.NodeId, err)
 	}
+	// TODO retry here because dispose() is missing?
+	connection.StopDecoderChan <- struct{}{}
+	connection.StopListenerChan <- struct{}{}
+	connection.IsClosed.Store(true)
 }
 
 func (c *ConnectionService) newMemberConnectionListeners() []connectionservice.MemberConnectionListener {
@@ -195,7 +276,7 @@ func (c *ConnectionService) OnMemberConnectionAdded(member *configdiscovery.Memb
 	go func() {
 		for {
 			select {
-			case <-connection.CloseContext.Done():
+			case <-connection.StopListenerChan:
 				c.onConnectionClosed(connection, nil)
 				return
 			case value, ok := <-connection.DataChan:
@@ -227,7 +308,7 @@ func (c *ConnectionService) onConnectionClosed(connection *connectionservice.Gur
 	if nodeId == "" {
 		member = nil
 	} else {
-		getMember(nodeId)
+		c.discoveryService.GetMember(nodeId)
 	}
 	var memberIdAndAddress string
 	if member == nil {
@@ -267,20 +348,20 @@ func (c *ConnectionService) onConnectionClosed(connection *connectionservice.Gur
 				"caught an error while notifiyng the onConnectionClosed listener: "+listener.GetName(), err)
 		}
 	}
-	isKnownMember := nodeId != "" && discoveryservice.IsKnownMember(nodeid)
-	isClosing := c.discoveryService.localNodeStatusManager.isClosing
+	isKnownMember := nodeId != "" && c.discoveryService.IsKnownMember(nodeId)
+	isClosing := c.discoveryService.LocalNodeStatusManager.IsClosing
 	if isLocalNodeClient && isKnownMember && !isClosing {
 		message := fmt.Sprint("[%s] Try to reconnect the member%s after %s millis",
 			nodeType, memberIdAndAddress, c.reconnectInterval*1000)
 		CONNECTIONLOGGER.InfoWithArgs(message)
 		time.Sleep(time.Duration(c.reconnectInterval) * time.Second)
-		memberToConnect := c.discoveryService.GetAllKnownMembers().Get(nodeId)
+		memberToConnect, _ := c.discoveryService.AllKnownMembers.Get(nodeId)
 		if memberToConnect == nil {
 			message := fmt.Sprint("[%s] Stop to reconnect the member%s because it has been unregistered",
 				nodeType, memberIdAndAddress)
 			CONNECTIONLOGGER.InfoWithArgs(message)
 		} else {
-			connectMemberUntilSucceedOrRemoved(memberToConnect)
+			c.connectMemberUntilSucceedOrRemoved(memberToConnect)
 		}
 	} else {
 		var reason string
@@ -296,6 +377,36 @@ func (c *ConnectionService) onConnectionClosed(connection *connectionservice.Gur
 		message := fmt.Sprint("[%s] Stop to connect the member%s because %s",
 			nodeType, memberIdAndAddress, reason)
 		CONNECTIONLOGGER.InfoWithArgs(message)
+	}
+}
+
+func (c *ConnectionService) OnMemberConnectionHandshakeCompleted(
+	member *configdiscovery.Member,
+	connection *connectionservice.GurmsConnection,
+	isLocalNodeCLient bool,
+) {
+	nodeId := member.Key.NodeId
+	var local string
+	if isLocalNodeCLient {
+		local = "Client"
+	} else {
+		local = "Server"
+	}
+	message := fmt.Sprint("[%s] Completed the opening handshake with the member :%s[%s:%s]",
+		local, nodeId, member.MemberHost, member.MemberPort)
+	CONNECTIONLOGGER.InfoWithArgs(message)
+	c.nodeIdToConnection.Set(nodeId, connection)
+	c.nodeIdToConnectionRetries.Remove(nodeId)
+	c.connectingMembers.Remove(nodeId)
+	c.updateHasConnectedToAllMembers(c.discoveryService.AllKnownMembers)
+	for _, listener := range connection.Listeners {
+		err := listener.OnOpeningHandshakeCompleted(member)
+		if err != nil {
+			message = fmt.Sprint(
+				"Caught an error while notifiying the onOpeningHandshakeCompleted listener: %s",
+				listener.GetName())
+			CONNECTIONLOGGER.ErrorWithMessage(message, err)
+		}
 	}
 }
 

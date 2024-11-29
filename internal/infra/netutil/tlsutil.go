@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 )
 
+// TODO
+
 func CreateTlsConfig(tlsProperties *common.TlsProperties, forServer bool) *tls.Config {
 	if !tlsProperties.Enabled {
 		return nil

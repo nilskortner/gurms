@@ -7,6 +7,8 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"time"
+
+	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
 var DISCOVERYLOGGER logger.Logger = factory.GetLogger("Discovery")
@@ -15,6 +17,8 @@ type DiscoveryService struct {
 	ConnectionService      *ConnectionService
 	LocalMember            *configdiscovery.Member
 	LocalNodeStatusManager *discovery.LocalNodeStatusManager
+
+	AllKnownMembers cmap.ConcurrentMap[string, *configdiscovery.Member]
 }
 
 func NewDiscoveryService(
@@ -49,8 +53,17 @@ func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 	//})
 }
 
+func (d *DiscoveryService) GetMember(nodeId string) *configdiscovery.Member {
+	value, _ := d.AllKnownMembers.Get(nodeId)
+	return value
+}
+
 func updateOtherActiveConnectedMemberList(isAdd bool, member *configdiscovery.Member) {
 
+}
+
+func (d *DiscoveryService) IsKnownMember(nodeId string) bool {
+	return d.AllKnownMembers.Has(nodeId)
 }
 
 // region MemberConnectionListener
