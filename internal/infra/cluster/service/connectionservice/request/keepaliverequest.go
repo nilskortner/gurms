@@ -1,22 +1,19 @@
 package request
 
 import (
+	"gurms/internal/infra/cluster/service/injection"
 	"gurms/internal/infra/cluster/service/rpcservice/dto"
 )
 
-const NAME = "keepalive"
+const KEEPALIVEREQUESTNAME = "keepalive"
 
 type KeepaliveRequest[T comparable] struct {
 	*dto.RpcBaseRequest
-	node Node
+	node   injection.Node
+	nodeId string
 }
 
-type Node interface {
-	DoKeepalive()
-	GetNodeId()
-}
-
-func NewKeepAliveRequest[T comparable]() *KeepaliveRequest[T] {
+func NewKeepAliveRequest[T comparable](nodeId string) *KeepaliveRequest[T] {
 	return &KeepaliveRequest[T]{}
 }
 
@@ -30,6 +27,7 @@ func (k *KeepaliveRequest[T]) CallAsync() T {
 	return zero
 }
 func (k *KeepaliveRequest[T]) Call() T {
+	k.node.KeepAliveRequestCall()
 	var zero T
 	return zero
 }
@@ -41,5 +39,5 @@ func (k *KeepaliveRequest[T]) NodeTypeToRespond() dto.NodeTypeToHandleRpc {
 }
 
 func (k *KeepaliveRequest[T]) Name() string {
-	return NAME
+	return KEEPALIVEREQUESTNAME
 }

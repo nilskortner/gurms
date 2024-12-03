@@ -7,12 +7,14 @@ import (
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/connectionservice/request"
+	"gurms/internal/infra/cluster/service/injection"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/logging/core/model/loglevel"
 	"gurms/internal/infra/netutil"
 	"gurms/internal/infra/property/env/common"
 	"gurms/internal/infra/property/env/common/cluster/connection"
+	"gurms/internal/supportpkgs/mathsupport"
 	"net"
 	"sync"
 	"time"
@@ -23,6 +25,8 @@ import (
 var CONNECTIONLOGGER logger.Logger = factory.GetLogger("ConnectionService")
 
 type ConnectionService struct {
+	node injection.Node
+
 	clientTls               *common.TlsProperties
 	keepaliveIntervalMillis int64
 	keepaliveTimeoutMillis  int64
@@ -43,10 +47,11 @@ type ConnectionService struct {
 	cancelKeepAlive context.CancelFunc
 }
 
-func NewConnectionService(connectionProperties *connection.ConnectionProperties) *ConnectionService {
+func NewConnectionService(connectionProperties *connection.ConnectionProperties, node injection.Node) *ConnectionService {
 	clientProperties := connectionProperties.Client
 
 	service := &ConnectionService{
+		node:                              node,
 		memberConnectionListenerSuppliers: make([]func() connectionservice.MemberConnectionListener, 0, 4),
 		serverProperties:                  connectionProperties.Server,
 		clientTls:                         clientProperties.Tls,
@@ -146,7 +151,7 @@ func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0(member *configdi
 	CONNECTIONLOGGER.InfoWithArgs(message)
 	conn, err := c.initTcpConnection(member.MemberHost, member.MemberPort)
 	if err != nil {
-		connectMemberUntilSucceedOrRemoved0Retry()
+		c.connectMemberUntilSucceedOrRemoved0Retry(nodeId, member.MemberHost, member.MemberPort, member, err)
 		return
 	}
 	connection := connectionservice.NewGurmsConnection(
@@ -154,10 +159,10 @@ func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0(member *configdi
 	c.OnMemberConnectionAdded(member, connection)
 	localNodeId := c.discoveryService.LocalMember.Key.NodeId
 	message = fmt.Sprint(
-		"[Client] Sending an opening handshake request to the member: {id=%s}, host={%s}, port={%s}",
+		"[Client] Sending an opening handshake request to the member: {id=%s}, host={%s}, port={%d}",
 		nodeId, member.MemberHost, member.MemberPort)
 	CONNECTIONLOGGER.InfoWithArgs(message)
-	handshakeRequest := request.NewOpeningHandshakeRequest[byte](localNodeId)
+	handshakeRequest := request.NewOpeningHandshakeRequest[byte](localNodeId, c.node)
 	code, err := RequestResponseWithGurmsConnection[byte](c.rpcService, nodeId, handshakeRequest, -1, connection)
 	if err != nil {
 		connectMemberUntilSucceedOrRemoved0LogError(nodeId, member.MemberHost, member.MemberPort, connection, err)
@@ -167,22 +172,27 @@ func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0(member *configdi
 		c.OnMemberConnectionHandshakeCompleted(member, connection, true)
 	} else {
 		err = fmt.Errorf("failure code: " + string(code))
-		connectMemberUntilSucceedOrRemoved0Retry()
+		c.connectMemberUntilSucceedOrRemoved0Retry(nodeId, member.MemberHost, member.MemberPort, member, err)
 	}
 }
 
 func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0Retry(
-	nodeId string, host string, port string, err error) {
+	nodeId string, host string, port int, member *configdiscovery.Member, err error) {
 	if !c.discoveryService.IsKnownMember(nodeId) {
 		return
 	}
 	retryTimes, _ := c.nodeIdToConnectionRetries.Get(nodeId)
-	message := fmt.Sprint("[Client] Failed to connect to member: {id=%s, host=%s, port=%s}. Retry times: %d",
+	message := fmt.Sprint("[Client] Failed to connect to member: {id=%s, host=%s, port=%d}. Retry times: %d",
 		nodeId, host, port, retryTimes)
 	CONNECTIONLOGGER.ErrorWithMessage(message, err)
 	retryTimes++
 	c.nodeIdToConnectionRetries.Set(nodeId, retryTimes)
-	connectionRetryScheduler.schedule()
+	time.Sleep(time.Duration(mathsupport.MinInt64(int64(retryTimes)*10, 60)) * time.Second)
+	if !c.IsMemberConnected(nodeId) && c.discoveryService.IsKnownMember(nodeId) {
+		c.connectMemberUntilSucceedOrRemoved0(member)
+	} else {
+		c.nodeIdToConnectionRetries.Remove(nodeId)
+	}
 }
 
 func connectMemberUntilSucceedOrRemoved0LogError(nodeId string,
@@ -211,6 +221,10 @@ func (c *ConnectionService) startSendKeepAliveToConnectionsForeverRoutine(ctx co
 	}()
 }
 
+func (c *ConnectionService) Keepalive(nodeId string) {
+	// TODO
+}
+
 func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservice.GurmsConnection) {
 	if !c.nodeIdToConnection.Has(id) {
 		return
@@ -229,13 +243,20 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 	if elapsedTime < c.keepaliveIntervalMillis {
 		return
 	}
-	keepAliveRequest := request.NewKeepAliveRequest[int]()
+	keepAliveRequest := request.NewKeepAliveRequest[int](connection.NodeId)
 	_, err := RequestResponseWithId(c.rpcService, id, keepAliveRequest)
 	if err != nil {
 		CONNECTIONLOGGER.WarnWithArgs("failed to send a keepalive request to the member: "+id, err)
 	} else {
 		connection.LastKeepaliveTimestamp = time.Now().UnixMilli()
 	}
+}
+
+// handshake
+
+func (c *ConnectionService) HandleHandshakeRequest(connection *connectionservice.GurmsConnection, nodeId string) byte {
+	//TODO
+	return 0
 }
 
 func disconnectConnection(connection *connectionservice.GurmsConnection) {
@@ -248,6 +269,12 @@ func disconnectConnection(connection *connectionservice.GurmsConnection) {
 	connection.StopDecoderChan <- struct{}{}
 	connection.StopListenerChan <- struct{}{}
 	connection.IsClosed.Store(true)
+}
+
+// lifecycle listeners
+
+func (c *ConnectionService) addMemberConnectionListenerSupplier(supplier func() connectionservice.MemberConnectionListener) {
+	c.memberConnectionListenerSuppliers = append(c.memberConnectionListenerSuppliers, supplier)
 }
 
 func (c *ConnectionService) newMemberConnectionListeners() []connectionservice.MemberConnectionListener {

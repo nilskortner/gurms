@@ -1,6 +1,9 @@
 package request
 
-import "gurms/internal/infra/cluster/service/rpcservice/dto"
+import (
+	"gurms/internal/infra/cluster/service/injection"
+	"gurms/internal/infra/cluster/service/rpcservice/dto"
+)
 
 const (
 	OPENINGHANDSHAKEREQUESTNAME string = "openingHandshake"
@@ -13,13 +16,15 @@ const (
 
 type OpeningHandshakeRequest[T comparable] struct {
 	*dto.RpcBaseRequest
-	node   Node
+	node   injection.Node
 	nodeId string
 }
 
-func NewOpeningHandshakeRequest[T comparable](nodeId string) *OpeningHandshakeRequest[T] {
+// only initialize as boolean
+func NewOpeningHandshakeRequest[T comparable](nodeId string, node injection.Node) *OpeningHandshakeRequest[T] {
 	return &OpeningHandshakeRequest[T]{
 		nodeId: nodeId,
+		node:   node,
 	}
 }
 
@@ -33,8 +38,7 @@ func (o *OpeningHandshakeRequest[T]) CallAsync() T {
 	return zero
 }
 func (o *OpeningHandshakeRequest[T]) Call() T {
-	// TODO
-	return zero
+	return o.node.OpeningHandshakeRequestCall().(T)
 }
 func (o *OpeningHandshakeRequest[T]) NodeTypeToRequest() dto.NodeTypeToHandleRpc {
 	return dto.BOTH
@@ -44,5 +48,5 @@ func (o *OpeningHandshakeRequest[T]) NodeTypeToRespond() dto.NodeTypeToHandleRpc
 }
 
 func (o *OpeningHandshakeRequest[T]) Name() string {
-	return NAME
+	return OPENINGHANDSHAKEREQUESTNAME
 }

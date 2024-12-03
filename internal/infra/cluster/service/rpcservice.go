@@ -40,9 +40,19 @@ func NewRpcService(nodeType nodetype.NodeType, rpcProperties *cluster.RpcPropert
 	}
 }
 
-// func LazyInit() {
-
-// }
+func (r *RpcService) LazyInit(codecService *CodecService,
+	connectionService *ConnectionService,
+	discoveryService *DiscoveryService) {
+	r.codecService = codecService
+	r.connectionService = connectionService
+	r.discoveryService = discoveryService
+	supplier := func() connectionservice.MemberConnectionListener {
+		var listener connectionservice.MemberConnectionListener
+		listener = &RpcMemberConnectionListener{}
+		return listener
+	}
+	r.connectionService.addMemberConnectionListenerSupplier(supplier)
+}
 
 func RequestResponse[T comparable](request dto.RpcRequest[T]) {
 
@@ -88,48 +98,6 @@ func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpo
 		timeout = r.defaultRequestTimeout.Milliseconds()
 	}
 	return rpcservice.SendRequest(endpoint, request)
-}
-
-func OnConnectionOpened() {
-
-}
-
-// region MemberConnectionListener
-
-type RpcMemberConnectionListener struct {
-	rpcService *RpcService
-	connection *connectionservice.GurmsConnection
-	endpoint   *rpcservice.RpcEndpoint
-}
-
-func (r *RpcMemberConnectionListener) OnConnectionOpened(connection *connectionservice.GurmsConnection) error
-
-func (r *RpcMemberConnectionListener) OnConnectionClosed()
-
-func (r *RpcMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member)
-
-func (r *RpcMemberConnectionListener) OnClosingHandshakeCompleted()
-
-func (r *RpcMemberConnectionListener) OnDataReceived(value any) {
-	switch value := value.(type) {
-	case dto.RpcRequest:
-		r.onRequestReceived(value)
-	case dto.RpcResponse:
-		r.onResponseReceived(value)
-	default:
-		RPCLOGGER.ErrorWithArgs("Received unkown data: ", value)
-	}
-}
-
-func (r *RpcMemberConnectionListener) onRequestReceived(request dto.RpcRequest) {
-
-}
-
-func (r *RpcMemberConnectionListener) onResponseReceived(response dto.RpcResponse) {
-	if r.endpoint == nil {
-		r.endpoint = r.getOrCreateEndpoint(r.connection.NodeId, r.connection)
-	}
-	r.endpoint.HandleResponse(response)
 }
 
 func (r *RpcService) getOrCreateEndpoint() (*rpcservice.RpcEndpoint, error) {
@@ -183,3 +151,60 @@ func assertCurrentNodeIsAllowedToSend[T comparable](r *RpcService, request dto.R
 	}
 	return nil
 }
+
+// region MemberConnectionListener
+
+type RpcMemberConnectionListener struct {
+	rpcService *RpcService
+	connection *connectionservice.GurmsConnection
+	endpoint   *rpcservice.RpcEndpoint
+}
+
+func (r *RpcMemberConnectionListener) GetName() string {
+	return "RpcMemberConnectionListener"
+}
+
+func (r *RpcMemberConnectionListener) OnConnectionOpened(connection *connectionservice.GurmsConnection) error {
+	r.connection = connection
+	conn := connection.Connection
+
+}
+
+func (r *RpcMemberConnectionListener) OnConnectionClosed() {
+	if r.connection != nil {
+		nodeId := r.connection.NodeId
+		if nodeId != "" {
+			r.rpcService.nodeIdToEndpoint.Remove(nodeId)
+		}
+	}
+}
+
+func (r *RpcMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member) {
+	r.endpoint = getOrCreateEndpoint(member.Key.NodeId, r.connection)
+}
+
+func (r *RpcMemberConnectionListener) OnClosingHandshakeCompleted()
+
+func (r *RpcMemberConnectionListener) OnDataReceived(value any) error {
+	switch value := value.(type) {
+	case dto.RpcRequest:
+		r.onRequestReceived(value)
+	case dto.RpcResponse:
+		r.onResponseReceived(value)
+	default:
+		RPCLOGGER.ErrorWithArgs("Received unkown data: ", value)
+	}
+}
+
+func (r *RpcMemberConnectionListener) onRequestReceived(request dto.RpcRequest) {
+
+}
+
+func (r *RpcMemberConnectionListener) onResponseReceived(response dto.RpcResponse) {
+	if r.endpoint == nil {
+		r.endpoint = getOrCreateEndpoint(r.connection.NodeId, r.connection)
+	}
+	r.endpoint.HandleResponse(response)
+}
+
+// end region

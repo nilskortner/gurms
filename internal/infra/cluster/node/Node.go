@@ -4,7 +4,6 @@ import (
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service"
-	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/healthcheck"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -74,11 +73,8 @@ func NewNode(
 				err.Error())
 		}
 	}
-	codecService := codec.NewCodecService()
-	connectionService := connectionservice.NewConnectionService()
-	rpcService := rpcserv.NewRpcService(nodeType, rpcProperties)
 
-	return &Node{
+	node := &Node{
 		gurmsProperties:        properties,
 		clusterProperties:      clusterProperties,
 		sharedConfigProperties: sharedConfigProperties,
@@ -91,6 +87,12 @@ func NewNode(
 		zone:      zone,
 		name:      name,
 	}
+
+	codecService := codec.NewCodecService()
+	connectionService := service.NewConnectionService(connectionProperties, node)
+	rpcService := service.NewRpcService(nodeType, rpcProperties)
+
+	return node
 }
 
 func InitNodeId(id string) string {
@@ -118,9 +120,19 @@ func InitNodeId(id string) string {
 }
 
 func (n *Node) Start() {
-	a
+	n.ConnectionService.LazyInitConnectionService()
 }
 
-// for interface Node
+// for Node Injection
 
-func GetNodeID()
+func (n *Node) GetNodeId()
+
+func (n *Node) DoKeepalive()
+
+func (n *Node) OpeningHandshakeRequestCall() any {
+	return n.ConnectionService.HandleHandshakeRequest(nodeId)
+}
+
+func (n *Node) KeepAliveRequestCall() {
+	n.ConnectionService.Keepalive(nodeId)
+}

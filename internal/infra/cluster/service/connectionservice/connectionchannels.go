@@ -1,5 +1,7 @@
 package connectionservice
 
+//TODO DELETE
+
 type ConnectionChannels struct {
 	DataChan  chan any
 	CloseChan chan struct{}

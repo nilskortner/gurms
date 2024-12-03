@@ -17,7 +17,6 @@ func RunRpcRequest[T comparable](
 		result = rpcRequest.CallAsync()
 	} else {
 		result = rpcRequest.Call()
-
 	}
 	return result, nil
 }
