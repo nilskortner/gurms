@@ -37,6 +37,7 @@ func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection
 	}
 }
 
+// TODO: check this function and the response handling
 func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T]) (T, error) {
 	conn := endpoint.Connection.Connection
 	if conn == nil {
@@ -57,12 +58,12 @@ func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T])
 		if err != nil {
 			buffer = nil
 			var zero T
-			return zero, resolveRequest(requestId, err)
+			return zero, resolveRequest(requestId, response, err)
 		}
 		_, err = conn.Write(buffer.Bytes())
 		if err != nil {
 			var zero T
-			return zero, resolveRequest(requestId, err)
+			return zero, resolveRequest(requestId, response, err)
 		}
 		decoder := gob.NewDecoder(conn)
 		err = decoder.Decode(&response)
@@ -91,11 +92,23 @@ func generateId() int64 {
 	return id
 }
 
-func HandleResponse[T comparable](response *dto.RpcResponse[T]) {
-	resolveRequest(response.RequestId, response.Rpcerror)
+// TODO: add all response types
+func UnwrapResponse(wrap dto.RpcResponseWrap) {
+	// Type switch
+	switch value := wrap.(type) {
+	case *dto.RpcResponse[byte]:
+		HandleResponse[byte](value)
+	default:
+		RPCENDPOINTLOGGER.ErrorWithArgs("Couldnt resolve Instantiation of Response[Type?]: ", wrap)
+	}
 }
 
-func resolveRequest(requestId int64, err error) error {
+func HandleResponse[T comparable](response *dto.RpcResponse[T]) {
+	resolveRequest(response.RequestId, response.Result, response.RpcError)
+}
+
+func resolveRequest[T comparable](requestId int64, response T, err error) error {
+	// TODO: handle value emit
 	_, ok := pendingRequestMap.Get(requestId)
 	if !ok {
 		message := fmt.Sprint("Could not find a pending request with the ID %s",

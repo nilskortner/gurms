@@ -180,31 +180,46 @@ func (r *RpcMemberConnectionListener) OnConnectionClosed() {
 }
 
 func (r *RpcMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member) {
-	r.endpoint = getOrCreateEndpoint(member.Key.NodeId, r.connection)
+	var err error
+	r.endpoint, err = r.rpcService.getOrCreateEndpointWithConnection(member.Key.NodeId, r.connection)
+	if err != nil {
+		RPCLOGGER.ErrorWithMessage("Couldnt get or create Endpoint: ", err)
+	}
 }
 
 func (r *RpcMemberConnectionListener) OnClosingHandshakeCompleted()
 
-func (r *RpcMemberConnectionListener) OnDataReceived(value any) error {
+func (r *RpcMemberConnectionListener) OnDataReceived(value any) {
 	switch value := value.(type) {
-	case dto.RpcRequest:
+	case dto.RpcRequestWrap:
 		r.onRequestReceived(value)
-	case dto.RpcResponse:
+	case dto.RpcResponseWrap:
 		r.onResponseReceived(value)
 	default:
 		RPCLOGGER.ErrorWithArgs("Received unkown data: ", value)
 	}
 }
 
-func (r *RpcMemberConnectionListener) onRequestReceived(request dto.RpcRequest) {
-
+// TODO: check more error handling and fallback
+func (r *RpcMemberConnectionListener) onRequestReceived(request dto.RpcRequestWrap) {
+	conn := r.connection.Connection
+	nodeId := r.connection.NodeId
+	buffer := rpcservice.UnwrapRunRpcRequest(request, r.connection, nodeId)
+	_, err := conn.Write(buffer.Bytes())
+	if err != nil {
+		RPCLOGGER.ErrorWithMessage("Failed to send the response: "+buffer.String(), err)
+	}
 }
 
-func (r *RpcMemberConnectionListener) onResponseReceived(response dto.RpcResponse) {
+func (r *RpcMemberConnectionListener) onResponseReceived(response dto.RpcResponseWrap) {
 	if r.endpoint == nil {
-		r.endpoint = getOrCreateEndpoint(r.connection.NodeId, r.connection)
+		var err error
+		r.endpoint, err = r.rpcService.getOrCreateEndpointWithConnection(r.connection.NodeId, r.connection)
+		if err != nil {
+			RPCLOGGER.ErrorWithMessage("Couldnt get or create Endpoint: ", err)
+		}
 	}
-	r.endpoint.HandleResponse(response)
+	rpcservice.UnwrapResponse(response)
 }
 
 // end region

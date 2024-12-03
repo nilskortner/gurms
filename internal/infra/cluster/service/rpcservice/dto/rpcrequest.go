@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+type RpcRequestWrap interface {
+	IsAsync() bool
+}
+
 type RpcRequest[T comparable] interface {
 	IsAsync() bool
 	CallAsync() T
