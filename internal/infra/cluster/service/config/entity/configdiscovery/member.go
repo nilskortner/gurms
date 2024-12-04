@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// TODO:
+
 type Member struct {
 	Key              Key
 	Zone             string

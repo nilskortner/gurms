@@ -4,6 +4,7 @@ import (
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service"
+	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/healthcheck"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -89,8 +90,8 @@ func NewNode(
 	}
 
 	codecService := codec.NewCodecService()
-	connectionService := service.NewConnectionService(connectionProperties, node)
-	rpcService := service.NewRpcService(nodeType, rpcProperties)
+	node.ConnectionService = service.NewConnectionService(connectionProperties, node)
+	node.RpcService = service.NewRpcService(nodeType, rpcProperties)
 
 	return node
 }
@@ -125,12 +126,8 @@ func (n *Node) Start() {
 
 // for Node Injection
 
-func (n *Node) GetNodeId()
-
-func (n *Node) DoKeepalive()
-
-func (n *Node) OpeningHandshakeRequestCall() any {
-	return n.ConnectionService.HandleHandshakeRequest(nodeId)
+func (n *Node) OpeningHandshakeRequestCall(connection *connectionservice.GurmsConnection) any {
+	return n.ConnectionService.HandleHandshakeRequest(connection, nodeId)
 }
 
 func (n *Node) KeepAliveRequestCall() {

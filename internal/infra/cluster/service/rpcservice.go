@@ -55,25 +55,21 @@ func (r *RpcService) LazyInit(codecService *CodecService,
 }
 
 func RequestResponse[T comparable](request dto.RpcRequest[T]) {
-
+	// TODO:
 }
 
 func RequestResponseWithId[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T]) (T, error) {
 	return RequestResponseWithGurmsConnection(r, memberNodeId, request, -1, nil)
 }
 
-func RequestResponseWithDuration[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64) chan T {
+func RequestResponseWithDuration[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64) (T, error) {
+	return RequestResponseWithGurmsConnection(r, memberNodeId, request, timeout, nil)
 }
 
 func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeId string, request dto.RpcRequest[T], timeout int64, connection *connectionservice.GurmsConnection) (T, error) {
 	if r.discoveryService.LocalMember.Key.NodeId == memberNodeId {
-		value, err := rpcservice.RunRpcRequest[T](request, nil, memberNodeId)
-		if err != nil {
-			var zero T
-			return zero, err
-		} else {
-			return value, nil
-		}
+		value := rpcservice.RunRpcRequest[T](request, nil, memberNodeId)
+		return value, nil
 	}
 	endpoint, err := r.getOrCreateEndpointWithConnection(memberNodeId, connection)
 	if err != nil {
@@ -86,7 +82,6 @@ func RequestResponseWithGurmsConnection[T comparable](r *RpcService, memberNodeI
 
 func RequestResponseWithRpcEndpoint()
 
-// internal implentations
 func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpoint, request dto.RpcRequest[T], timeout int64) (T, error) {
 	err := assertCurrentNodeIsAllowedToSend(r, request)
 	if err != nil {
@@ -100,8 +95,8 @@ func requestResponse0[T comparable](r *RpcService, endpoint *rpcservice.RpcEndpo
 	return rpcservice.SendRequest(endpoint, request)
 }
 
-func (r *RpcService) getOrCreateEndpoint() (*rpcservice.RpcEndpoint, error) {
-
+func (r *RpcService) getOrCreateEndpoint(nodeId string) (*rpcservice.RpcEndpoint, error) {
+	return r.getOrCreateEndpointWithConnection(nodeId, nil)
 }
 
 func (r *RpcService) getOrCreateEndpointWithConnection(nodeId string, connection *connectionservice.GurmsConnection) (*rpcservice.RpcEndpoint, error) {
@@ -164,32 +159,35 @@ func (r *RpcMemberConnectionListener) GetName() string {
 	return "RpcMemberConnectionListener"
 }
 
+// TODO: check
 func (r *RpcMemberConnectionListener) OnConnectionOpened(connection *connectionservice.GurmsConnection) error {
 	r.connection = connection
-	conn := connection.Connection
-
+	return nil
 }
 
-func (r *RpcMemberConnectionListener) OnConnectionClosed() {
+func (r *RpcMemberConnectionListener) OnConnectionClosed() error {
 	if r.connection != nil {
 		nodeId := r.connection.NodeId
 		if nodeId != "" {
 			r.rpcService.nodeIdToEndpoint.Remove(nodeId)
 		}
 	}
+	return nil
 }
 
-func (r *RpcMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member) {
+func (r *RpcMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member) error {
 	var err error
 	r.endpoint, err = r.rpcService.getOrCreateEndpointWithConnection(member.Key.NodeId, r.connection)
 	if err != nil {
 		RPCLOGGER.ErrorWithMessage("Couldnt get or create Endpoint: ", err)
+		return err
 	}
+	return nil
 }
 
 func (r *RpcMemberConnectionListener) OnClosingHandshakeCompleted()
 
-func (r *RpcMemberConnectionListener) OnDataReceived(value any) {
+func (r *RpcMemberConnectionListener) OnDataReceived(value any) error {
 	switch value := value.(type) {
 	case dto.RpcRequestWrap:
 		r.onRequestReceived(value)
@@ -197,7 +195,9 @@ func (r *RpcMemberConnectionListener) OnDataReceived(value any) {
 		r.onResponseReceived(value)
 	default:
 		RPCLOGGER.ErrorWithArgs("Received unkown data: ", value)
+		return fmt.Errorf("received unknown data: %s", value)
 	}
+	return nil
 }
 
 // TODO: check more error handling and fallback

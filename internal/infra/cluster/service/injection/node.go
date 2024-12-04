@@ -1,8 +1,8 @@
 package injection
 
+import "gurms/internal/infra/cluster/service/connectionservice"
+
 type Node interface {
-	DoKeepalive()
-	GetNodeId()
-	OpeningHandshakeRequestCall() any
+	OpeningHandshakeRequestCall(*connectionservice.GurmsConnection) any
 	KeepAliveRequestCall()
 }

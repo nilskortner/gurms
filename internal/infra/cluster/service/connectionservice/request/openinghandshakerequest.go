@@ -38,7 +38,7 @@ func (o *OpeningHandshakeRequest[T]) CallAsync() T {
 	return zero
 }
 func (o *OpeningHandshakeRequest[T]) Call() T {
-	return o.node.OpeningHandshakeRequestCall().(T)
+	return o.node.OpeningHandshakeRequestCall(o.Connection).(T)
 }
 func (o *OpeningHandshakeRequest[T]) NodeTypeToRequest() dto.NodeTypeToHandleRpc {
 	return dto.BOTH
