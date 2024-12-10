@@ -1,23 +1,101 @@
 package service
 
-import "gurms/internal/storage/mongo"
+import (
+	"context"
+	"gurms/internal/infra/logging/core/factory"
+	"gurms/internal/infra/logging/core/logger"
+	"gurms/internal/infra/property/env/common/mongoproperties"
+	mongostorage "gurms/internal/storage/mongo"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+)
+
+var SHAREDCONFIGLOGGER logger.Logger = factory.GetLogger("SharedConfig")
 
 const EXPIRABLE_RECORD_TTL = 60
 
 type SharedConfigService struct {
-	mongoClient *mongo.GurmsMongoClient
+	mongoClient *mongostorage.GurmsMongoClient
 }
 
-func NewSharedConfigService(properties *MongoProperties) *SharedConfigService {
-	mongoClient := mongo.NewGurmsMongoClient(properties, "shared-config")
+// TODO: make bson tags for structs
 
-	structs := make([]any, 3)
-	mongoClient.RegisterEntitiesByStructs(structs)
-	for entityStruct := range structs {
-		mongoClient.CreateCollectionIfNotExists(entityStruct)
+// TODO: look into sharding functions
+
+func NewSharedConfigService(properties *mongoproperties.MongoProperties) *SharedConfigService {
+	mongoClient, err := mongostorage.NewGurmsMongoClient(properties, "shared-config")
+	if err != nil {
+		SHAREDCONFIGLOGGER.FatalWithError("failed to create the shared config service", err)
 	}
+	ctx := context.Background()
+
+	setIndexes(ctx, mongoClient.Ctx.Database)
 
 	return &SharedConfigService{
 		mongoClient: mongoClient,
 	}
 }
+
+func setIndexes(ctx context.Context, database *mongo.Database) {
+	ensureSharedClusterPropertiesIndexes(database)
+	ensureLeaderIndexes(database)
+	ensureMemberIndexes(database)
+}
+
+// region Indexation
+
+func ensureSharedClusterPropertiesIndexes(database *mongo.Database) {
+	sharedclusterproperties := mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	ctx := context.Background()
+	name := "sharedclusterproperties"
+	database.CreateCollection(ctx, name)
+	collection := database.Collection(name)
+	_, err := collection.Indexes().CreateOne(ctx, sharedclusterproperties)
+	if err != nil {
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create index for sharedclusterproperties: ", err)
+	}
+}
+
+func ensureLeaderIndexes(database *mongo.Database) {
+	renew := mongo.IndexModel{
+		Keys:    bson.D{{Key: "renew_date", Value: 1}},
+		Options: options.Index().SetExpireAfterSeconds(60),
+	}
+	clusterId := mongo.IndexModel{
+		Keys:    bson.D{{Key: "cluster_id", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	ctx := context.Background()
+	name := "leader"
+	database.CreateCollection(ctx, name)
+	collection := database.Collection(name)
+	_, err := collection.Indexes().CreateOne(ctx, clusterId)
+	if err != nil {
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create clusterId index for leader: ", err)
+	}
+	_, err = collection.Indexes().CreateOne(ctx, renew)
+	if err != nil {
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create renew index for leader: ", err)
+	}
+}
+func ensureMemberIndexes(database *mongo.Database) {
+	member := mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	ctx := context.Background()
+	name := "member"
+	database.CreateCollection(ctx, name)
+	collection := database.Collection(name)
+	_, err := collection.Indexes().CreateOne(ctx, member)
+	if err != nil {
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create index for member: ", err)
+	}
+}
+
+// end region

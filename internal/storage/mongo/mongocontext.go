@@ -16,10 +16,10 @@ var nameToEntity *hashmap.Map[string, entity.MongoEntityWrap] = hashmap.New[stri
 var nameToCollection *hashmap.Map[string, *mongo.Collection] = hashmap.New[string, *mongo.Collection]()
 
 type MongoContext struct {
-	client         *mongo.Client
-	database       *mongo.Database
-	adminDatabase  *mongo.Database
-	configDatabase *mongo.Database
+	Client         *mongo.Client
+	Database       *mongo.Database
+	AdminDatabase  *mongo.Database
+	ConfigDatabase *mongo.Database
 }
 
 func NewMongoContext(connectionString string, onServerDescriptionChange func([]event.ServerDescription)) (*MongoContext, error) {
@@ -49,10 +49,10 @@ func NewMongoContext(connectionString string, onServerDescriptionChange func([]e
 	}
 
 	return &MongoContext{
-		client:         client,
-		database:       client.Database(databaseName),
-		adminDatabase:  client.Database("admin"),
-		configDatabase: client.Database("config"),
+		Client:         client,
+		Database:       client.Database(databaseName),
+		AdminDatabase:  client.Database("admin"),
+		ConfigDatabase: client.Database("config"),
 	}, nil
 }
 

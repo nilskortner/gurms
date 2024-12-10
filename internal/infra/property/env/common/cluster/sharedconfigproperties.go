@@ -1,13 +1,13 @@
 package cluster
 
-import "gurms/internal/infra/property/env/common/mongo"
+import "gurms/internal/infra/property/env/common/mongoproperties"
 
 type SharedConfigProperties struct {
-	mongo *mongo.MongoProperties
+	mongo *mongoproperties.MongoProperties
 }
 
 func NewSharedConfigProperties() *SharedConfigProperties {
 	return &SharedConfigProperties{
-		mongo: mongo.NewMongoProperties(),
+		mongo: mongoproperties.NewMongoProperties(),
 	}
 }
