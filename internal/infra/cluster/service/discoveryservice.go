@@ -11,14 +11,30 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
-var DISCOVERYLOGGER logger.Logger = factory.GetLogger("Discovery")
+var DISCOVERYSERVICELOGGER logger.Logger = factory.GetLogger("DiscoveryService")
 
 type DiscoveryService struct {
+	DiscoveryProperties *DiscoveryProperties
+
+	SharedConfigService *SharedConfigService
+
 	ConnectionService      *ConnectionService
-	LocalMember            *configdiscovery.Member
 	LocalNodeStatusManager *discovery.LocalNodeStatusManager
 
+	Leader *configdiscovery.Leader
+
 	AllKnownMembers cmap.ConcurrentMap[string, *configdiscovery.Member]
+
+	ActiveSortedAiServingMembers []*configdiscovery.Member
+	ActiveSortedServiceMembers   []*configdiscovery.Member
+	ActiveSortedGatewayMembers   []*configdiscovery.Member
+
+	OtherActiveConnectedAiServingMembers []*configdiscovery.Member
+	OtherActiveConnectedGatewayMembers   []*configdiscovery.Member
+	OtherActiveConnectedServiceMembers   []*configdiscovery.Member
+	OtherActiveConnectedMembers          []*configdiscovery.Member
+
+	MembersChangeListeners []discovery.MembersChangeListener
 }
 
 func NewDiscoveryService(
@@ -46,6 +62,8 @@ func NewDiscoveryService(
 		discoveryProperties.getHeartbeatIntervalSeconds(),
 	)
 }
+
+func (d *DiscoveryService) Start() {}
 
 func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 	//d.connectionService. = append(, func() memberconnectionlistener.MemberConnectionListener{

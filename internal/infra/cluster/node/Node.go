@@ -33,13 +33,13 @@ type Node struct {
 	zone      string
 	name      string
 
-	SharedConfigService   *SharedConfigService
-	SharedPropertyService *SharedPropertyService
-	CodecService          *codec.CodecService
+	SharedConfigService   *service.SharedConfigService
+	SharedPropertyService *service.SharedPropertyService
+	CodecService          *service.CodecService
 	ConnectionService     *service.ConnectionService
-	DiscoveryService      *DiscoveryService
-	RpcService            *rpcserv.RpcService
-	IdService             *IdService
+	DiscoveryService      *service.DiscoveryService
+	RpcService            *service.RpcService
+	IdService             *service.IdService
 }
 
 func NewNode(
@@ -89,9 +89,10 @@ func NewNode(
 		name:      name,
 	}
 
-	codecService := codec.NewCodecService()
 	node.ConnectionService = service.NewConnectionService(connectionProperties, node)
 	node.RpcService = service.NewRpcService(nodeType, rpcProperties)
+	node.SharedConfigService = service.NewSharedConfigService(sharedConfigProperties.Mongo)
+	node.DiscoveryService = service.NewDiscoveryService()
 
 	return node
 }
