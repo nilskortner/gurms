@@ -157,7 +157,7 @@ func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0(member *configdi
 	connection := connectionservice.NewGurmsConnection(
 		nodeId, conn, true, c.newMemberConnectionListeners())
 	c.OnMemberConnectionAdded(member, connection)
-	localNodeId := c.discoveryService.LocalMember.Key.NodeId
+	localNodeId := c.discoveryService.LocalNodeStatusManager.LocalMember.Key.NodeId
 	message = fmt.Sprint(
 		"[Client] Sending an opening handshake request to the member: {id=%s}, host={%s}, port={%d}",
 		nodeId, member.MemberHost, member.MemberPort)

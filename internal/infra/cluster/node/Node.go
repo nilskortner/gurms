@@ -43,6 +43,7 @@ type Node struct {
 }
 
 func NewNode(
+	version string,
 	nType nodetype.NodeType,
 	propertiesManager *property.GurmsPropertiesManager,
 	baseServiceAddresssManager *address.BaseServiceAddressManager,
@@ -56,6 +57,9 @@ func NewNode(
 	connectionProperties := clusterProperties.Connection
 	discoveryProperties := clusterProperties.Discovery
 	rpcProperties := clusterProperties.Rpc
+
+	nodeVersion := nodetype.Parse(version)
+	NODELOGGER.InfoWithArgs("the local node version is: ", version)
 
 	clusterId := clusterProperties.Id
 	nodeId = InitNodeId(nodeProperties.Id)

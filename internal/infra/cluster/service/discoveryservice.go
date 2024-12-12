@@ -1,11 +1,13 @@
 package service
 
 import (
+	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/discovery"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
+	"gurms/internal/infra/property/env/common/cluster"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -14,7 +16,7 @@ import (
 var DISCOVERYSERVICELOGGER logger.Logger = factory.GetLogger("DiscoveryService")
 
 type DiscoveryService struct {
-	DiscoveryProperties *DiscoveryProperties
+	DiscoveryProperties *cluster.DiscoveryProperties
 
 	SharedConfigService *SharedConfigService
 
@@ -35,6 +37,8 @@ type DiscoveryService struct {
 	OtherActiveConnectedMembers          []*configdiscovery.Member
 
 	MembersChangeListeners []discovery.MembersChangeListener
+
+	HeartbeatTimeoutMillis time.Time
 }
 
 func NewDiscoveryService(
@@ -43,24 +47,52 @@ func NewDiscoveryService(
 	zone string,
 	name string,
 	nodeType nodetype.NodeType,
-	nodeversion nodetype.NodeTypeInfo,
+	nodeversion *nodetype.NodeVersion,
 	isLeaderEligible bool,
 	priority int,
 	isActive bool,
 	isHealthy bool,
 	memberBindPort int,
-	discoveryProperties *DiscoveryProperties,
-	serviceAddressManager *BaseServiceAddressManager,
+	discoveryProperties *cluster.DiscoveryProperties,
+	serviceAddressManager address.ServiceAddressManager,
 	sharedConfigService *SharedConfigService,
 ) *DiscoveryService {
 	now := time.Now()
-	localMember := configdiscovery.NewMember()
+	localMember := configdiscovery.NewMember(
+		clusterId,
+		nodeId,
+		zone,
+		name,
+		nodeType,
+		nodeversion,
+		false,
+		isLeaderEligible,
+		now,
+		priority,
+		serviceAddressManager.GetMemberHost(),
+		memberBindPort,
+		serviceAddressManager.GetAdminApiAddress(),
+		serviceAddressManager.GetWsAddress(),
+		serviceAddressManager.GetTcpAddress(),
+		serviceAddressManager.GetUdpAddress(),
+		false,
+		isActive,
+		isHealthy,
+	)
 	heartbeatTimeoutMillis := mathutil.multiply(discovereyProperties.getHeartbeatTimeoutSeconds(), 1000)
-	localNodeStatusManager := newLocalNodeStatusManager(
+	localNodeStatusManager := NewLocalNodeStatusManager(
 		sharedConfigService,
 		localMember,
-		discoveryProperties.getHeartbeatIntervalSeconds(),
+		discoveryProperties.HeartbeatIntervalSeconds,
 	)
+
+	return &DiscoveryService{
+		DiscoveryProperties:    discoveryProperties,
+		SharedConfigService:    sharedConfigService,
+		LocalNodeStatusManager: localNodeStatusManager,
+		HeartbeatTimeoutMillis: heartbeatTimeoutMillis,
+		// maps
+	}
 }
 
 func (d *DiscoveryService) Start() {}

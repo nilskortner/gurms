@@ -8,4 +8,11 @@ import (
 var LOGGER logger.Logger = factory.GetLogger("BaseServiceAddressManager")
 
 type BaseServiceAddressManager struct {
+	IpDetector                        *IpDetector
+	OnNodeAddressInfoChangedListeners []func(*NodeAddressInfo)
+	MemberAddressProperties           *AddressProperties
+	MemberBindHost                    string
+	MemberHost                        string
+	AdminApiAddressProperties         *AddressProperties
+	AdminApiAddress                   string
 }
