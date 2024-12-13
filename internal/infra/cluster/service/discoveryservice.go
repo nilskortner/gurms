@@ -38,7 +38,7 @@ type DiscoveryService struct {
 
 	MembersChangeListeners []discovery.MembersChangeListener
 
-	HeartbeatTimeoutMillis time.Time
+	HeartbeatTimeoutMillis int64
 }
 
 func NewDiscoveryService(
@@ -79,20 +79,40 @@ func NewDiscoveryService(
 		isActive,
 		isHealthy,
 	)
-	heartbeatTimeoutMillis := mathutil.multiply(discovereyProperties.getHeartbeatTimeoutSeconds(), 1000)
-	localNodeStatusManager := NewLocalNodeStatusManager(
+	heartbeatTimeoutMillis := (discoveryProperties.HeartbeatTimeoutSeconds * 1000)
+
+	discoveryService := &DiscoveryService{
+		DiscoveryProperties:    discoveryProperties,
+		SharedConfigService:    sharedConfigService,
+		HeartbeatTimeoutMillis: int64(heartbeatTimeoutMillis),
+		// maps
+		ActiveSortedAiServingMembers:         make([]*configdiscovery.Member, 0),
+		ActiveSortedServiceMembers:           make([]*configdiscovery.Member, 0),
+		ActiveSortedGatewayMembers:           make([]*configdiscovery.Member, 0),
+		OtherActiveConnectedAiServingMembers: make([]*configdiscovery.Member, 0),
+		OtherActiveConnectedGatewayMembers:   make([]*configdiscovery.Member, 0),
+		OtherActiveConnectedServiceMembers:   make([]*configdiscovery.Member, 0),
+		OtherActiveConnectedMembers:          make([]*configdiscovery.Member, 0),
+		MembersChangeListeners:               make([]discovery.MembersChangeListener, 0),
+	}
+
+	localNodeStatusManager := discovery.NewLocalNodeStatusManager(
+		discoveryService,
 		sharedConfigService,
 		localMember,
 		discoveryProperties.HeartbeatIntervalSeconds,
 	)
+	discoveryService.LocalNodeStatusManager = localNodeStatusManager
 
-	return &DiscoveryService{
-		DiscoveryProperties:    discoveryProperties,
-		SharedConfigService:    sharedConfigService,
-		LocalNodeStatusManager: localNodeStatusManager,
-		HeartbeatTimeoutMillis: heartbeatTimeoutMillis,
-		// maps
-	}
+	serviceAddressManager.AddOnNodeAddressInfoChangedListener(func(info *address.NodeAddressInfo) {
+		update := option.NewUpdate()
+		err := localNodeStatusManager.upsertLocalNodeInfo(update)
+		if err != nil {
+			DISCOVERYSERVICELOGGER.ErrorWithMessage("caught an error while upserting the local node info", err)
+		}
+	})
+
+	return discoveryService
 }
 
 func (d *DiscoveryService) Start() {}

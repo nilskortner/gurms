@@ -6,4 +6,5 @@ type ServiceAddressManager interface {
 	GetWsAddress() string
 	GetTcpAddress() string
 	GetUdpAddress() string
+	AddOnNodeAddressInfoChangedListener(func(*NodeAddressInfo))
 }
