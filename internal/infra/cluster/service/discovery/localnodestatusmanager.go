@@ -4,6 +4,7 @@ import (
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
+	"gurms/internal/storage/mongo/operation/option"
 	"sync/atomic"
 	"time"
 )
@@ -23,7 +24,9 @@ type LocalNodeStatusManager struct {
 
 type DiscoveryService interface{}
 
-type SharedConfigService interface{}
+type SharedConfigService interface {
+	Upsert(filter *option.Filter, update *option.Update, entity string) error
+}
 
 func NewLocalNodeStatusManager(
 	discoveryService DiscoveryService,
@@ -40,4 +43,18 @@ func NewLocalNodeStatusManager(
 		HeartbeatInterval:       heartbeatInterval,
 		HeartbeatIntervalMillis: heartbeatIntervalMillis,
 	}
+}
+
+func (n *LocalNodeStatusManager) UpsertLocalNodeInfo(update *option.Update) error {
+	nodeId := n.LocalMember.Key.NodeId
+	memberFilter := option.NewFilter()
+	memberFilter.Eq(n.LocalMember.Key.ClusterId, n.LocalMember.Key.ClusterId)
+	memberFilter.Eq(configdiscovery, nodeId)
+
+	err := n.SharedConfigService.Upsert(memberFilter, update, n.LocalMember.Name)
+	if err == nil {
+		n.IsLocalNodeRegistered = true
+		return nil
+	}
+	return err
 }

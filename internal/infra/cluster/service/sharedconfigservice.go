@@ -6,6 +6,8 @@ import (
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/mongoproperties"
 	mongostorage "gurms/internal/storage/mongo"
+	"gurms/internal/storage/mongo/operation/option"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -42,6 +44,22 @@ func setIndexes(ctx context.Context, database *mongo.Database) {
 	ensureSharedClusterPropertiesIndexes(database)
 	ensureLeaderIndexes(database)
 	ensureMemberIndexes(database)
+}
+
+func (s *SharedConfigService) updateOne(filter *option.Filter, update *option.Update, entity string, upsert bool) error {
+	collection := s.mongoClient.Ctx.Database.Collection(entity)
+	option := options.Update().SetUpsert(true)
+
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	_, err := collection.UpdateOne(ctx, filter.Document, update.Update, option)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *SharedConfigService) Upsert(filter *option.Filter, update *option.Update, entity string) error {
+	return s.updateOne(filter, update, entity, true)
 }
 
 // region Indexation

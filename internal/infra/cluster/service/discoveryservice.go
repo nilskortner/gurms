@@ -8,6 +8,7 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/cluster"
+	"gurms/internal/storage/mongo/operation/option"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -105,8 +106,13 @@ func NewDiscoveryService(
 	discoveryService.LocalNodeStatusManager = localNodeStatusManager
 
 	serviceAddressManager.AddOnNodeAddressInfoChangedListener(func(info *address.NodeAddressInfo) {
-		update := option.NewUpdate()
-		err := localNodeStatusManager.upsertLocalNodeInfo(update)
+
+		update := option.NewUpdate(info.MemberHost,
+			info.AdminApiAddress,
+			info.WsAddress,
+			info.TcpAddress,
+			info.UdpAddress)
+		err := localNodeStatusManager.UpsertLocalNodeInfo(update)
 		if err != nil {
 			DISCOVERYSERVICELOGGER.ErrorWithMessage("caught an error while upserting the local node info", err)
 		}
