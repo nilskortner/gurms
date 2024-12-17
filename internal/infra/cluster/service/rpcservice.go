@@ -48,7 +48,9 @@ func (r *RpcService) LazyInit(codecService *CodecService,
 	r.discoveryService = discoveryService
 	supplier := func() connectionservice.MemberConnectionListener {
 		var listener connectionservice.MemberConnectionListener
-		listener = &RpcMemberConnectionListener{}
+		listener = &RpcMemberConnectionListener{
+			rpcService: r,
+		}
 		return listener
 	}
 	r.connectionService.addMemberConnectionListenerSupplier(supplier)

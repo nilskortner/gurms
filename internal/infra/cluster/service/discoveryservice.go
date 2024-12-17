@@ -1,14 +1,18 @@
 package service
 
 import (
+	"fmt"
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
+	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/discovery"
+	"gurms/internal/infra/collection"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/cluster"
 	"gurms/internal/storage/mongo/operation/option"
+	"sync"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -40,6 +44,8 @@ type DiscoveryService struct {
 	MembersChangeListeners []discovery.MembersChangeListener
 
 	HeartbeatTimeoutMillis int64
+
+	mu sync.Mutex
 }
 
 func NewDiscoveryService(
@@ -121,12 +127,79 @@ func NewDiscoveryService(
 	return discoveryService
 }
 
-func (d *DiscoveryService) Start() {}
+func (d *DiscoveryService) Start() {
+	listenLeaderChangeEvent()
+
+	//Members
+	listenMembersChangeEvent()
+	var memberList []*configdiscovery.Member
+	memberList = queryMembers()
+	time.Sleep(CRUD_TIMEOUT_DURATION)
+
+	localMember := d.LocalNodeStatusManager.LocalMember
+	var isSameId bool
+	var isSameAddress bool
+	for _, member := range memberList {
+		isSameId = localMember.IsSameId(member)
+		isSameAddress = localMember.IsSameAddress(member)
+		if isSameId || isSameAddress {
+			if !isAvailableMember(member, time.Now()) {
+				var removedMemberIfInavailable bool
+				if isSameId {
+					removedMemberIfInavailable(member.Key.NodeId, "", "")
+				} else {
+					removedMemberIfInavailable(member.Key.NodeId,
+						member.Host,
+						member.Port)
+				}
+				isConflictedNodeRemoved := removedMemberIfInavailable
+				if isConflictedNodeRemoved {
+					continue
+				}
+			}
+			err := fmt.Errorf("Failed to bootstrap the local node because the local node has been registered. "+
+				"Local Node: %s. Registered Node: %s", localMember, member)
+			return err
+		}
+		d.onMemberAddedOrReplaced(member)
+	}
+	//
+	d.onMemberAddedOrReplaced(localMember)
+	d.updateActiveMembers(d.AllKnownMembers.values())
+
+	err := d.LocalNodeStatusManager.registerLocalNodeAsMember(false)
+	if err != nil {
+		fmt.Errorf("Caught an error while registering the local node as a member", err)
+	}
+	isLeader, err := d.LocalNodeStatusManager.tryBecomeFirstLeader()
+	if err != nil {
+		fmt.Errorf("Caught an error while trying to become the first leader", err)
+	}
+	if isLeader {
+		DISCOVERYSERVICELOGGER.InfoWithArgs("the local node has become the first leader")
+	}
+	d.LocalNodeStatusManager.StartHeartbeat()
+}
 
 func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
-	//d.connectionService. = append(, func() memberconnectionlistener.MemberConnectionListener{
+	d.ConnectionService = connectionService
+	d.ConnectionService.addMemberConnectionListenerSupplier(func() connectionservice.MemberConnectionListener {
+		var listener connectionservice.MemberConnectionListener
+		listener = &DiscoveryMemberConnectionListener{
+			discoveryService: d,
+		}
+		return listener
+	})
+}
 
-	//})
+func (d *DiscoveryService) listenLeaderChangeEvent() {
+	d.SharedConfigService.Subscribe()
+
+	return
+}
+
+func (d *DiscoveryService) listenMembersChangeEvent() {
+
 }
 
 func (d *DiscoveryService) GetMember(nodeId string) *configdiscovery.Member {
@@ -134,27 +207,92 @@ func (d *DiscoveryService) GetMember(nodeId string) *configdiscovery.Member {
 	return value
 }
 
-func updateOtherActiveConnectedMemberList(isAdd bool, member *configdiscovery.Member) {
-
-}
-
 func (d *DiscoveryService) IsKnownMember(nodeId string) bool {
 	return d.AllKnownMembers.Has(nodeId)
 }
 
+func (d *DiscoveryService) updateOtherActiveConnectedMemberList(isAdd bool, member *configdiscovery.Member) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	isLocalNode := member.IsSameNode(d.LocalNodeStatusManager.LocalMember)
+	if isLocalNode {
+		return
+	}
+	nodeType := member.NodeType
+	var memberList []*configdiscovery.Member
+	switch nodeType {
+	case 0:
+		memberList = d.OtherActiveConnectedAiServingMembers
+	case 1:
+		memberList = d.OtherActiveConnectedGatewayMembers
+	case 2:
+		memberList = d.OtherActiveConnectedServiceMembers
+	default:
+		memberList = make([]*configdiscovery.Member, 0)
+	}
+	var size int
+	if isAdd {
+		size = len(memberList) + 1
+	} else {
+		size = len(memberList)
+	}
+	tempOtherActiveConnectedMembers := make([]*configdiscovery.Member, size)
+	copy(tempOtherActiveConnectedMembers, memberList)
+	if isAdd {
+		tempOtherActiveConnectedMembers = append(tempOtherActiveConnectedMembers, member)
+	} else {
+		tempOtherActiveConnectedMembers = collection.RemoveByValue(tempOtherActiveConnectedMembers, member)
+	}
+	switch nodeType {
+	case 0:
+		d.OtherActiveConnectedAiServingMembers = tempOtherActiveConnectedMembers
+	case 1:
+		d.OtherActiveConnectedGatewayMembers = tempOtherActiveConnectedMembers
+	case 2:
+		d.OtherActiveConnectedServiceMembers = tempOtherActiveConnectedMembers
+	}
+	d.OtherActiveConnectedMembers = collection.UnionThreeSlices(d.OtherActiveConnectedAiServingMembers,
+		d.OtherActiveConnectedGatewayMembers, d.OtherActiveConnectedServiceMembers)
+}
+
 // region MemberConnectionListener
 
+// TODO: check where return value unneccesary
 type DiscoveryMemberConnectionListener struct {
-	member *configdiscovery.Member
+	discoveryService *DiscoveryService
+	member           *configdiscovery.Member
 }
 
-func (d *DiscoveryMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member) {
+func (d *DiscoveryMemberConnectionListener) GetName() string {
+	return "DiscoveryMemberConnectionListener"
+}
+
+func (d *DiscoveryMemberConnectionListener) OnOpeningHandshakeCompleted(member *configdiscovery.Member) error {
 	d.member = member
-	updateOtherActiveConnectedMemberList(true, d.member)
+	d.discoveryService.updateOtherActiveConnectedMemberList(true, d.member)
+	return nil
 }
 
-func (d *DiscoveryMemberConnectionListener) OnConnectionClosed() {
+func (d *DiscoveryMemberConnectionListener) OnConnectionClosed() error {
 	if d.member != nil {
-		updateOtherActiveConnectedMemberList(false, d.member)
+		d.discoveryService.updateOtherActiveConnectedMemberList(false, d.member)
 	}
+	return nil
 }
+
+// not implemented
+func (d *DiscoveryMemberConnectionListener) OnConnectionOpened(connection *connectionservice.GurmsConnection) error {
+	return nil
+}
+
+// not implemented
+func (d *DiscoveryMemberConnectionListener) OnClosingHandshakeCompleted() {
+}
+
+// not implemented
+func (d *DiscoveryMemberConnectionListener) OnDataReceived(value any) error {
+	return nil
+}
+
+// end region

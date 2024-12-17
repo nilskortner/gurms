@@ -349,7 +349,7 @@ func unionTwoSlices[K comparable](list1, list2 []K) []K {
 	return result
 }
 
-func unionThreeSlices[K comparable](list1, list2, list3 []K) []K {
+func UnionThreeSlices[K comparable](list1, list2, list3 []K) []K {
 	var length = len(list1) + len(list2)
 	result := make([]K, length+len(list3))
 	copy(list1, result)
@@ -360,4 +360,16 @@ func unionThreeSlices[K comparable](list1, list2, list3 []K) []K {
 
 func unionSet() {
 
+}
+
+// region slice
+
+func RemoveByValue[T comparable](slice []T, value T) []T {
+	result := []T{}
+	for _, v := range slice {
+		if v != value {
+			result = append(result, v)
+		}
+	}
+	return result
 }

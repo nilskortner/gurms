@@ -46,6 +46,10 @@ func setIndexes(ctx context.Context, database *mongo.Database) {
 	ensureMemberIndexes(database)
 }
 
+func (s *SharedConfigService) Subscribe() {
+	s.mongoClient.Watch
+}
+
 func (s *SharedConfigService) updateOne(filter *option.Filter, update *option.Update, entity string, upsert bool) error {
 	collection := s.mongoClient.Ctx.Database.Collection(entity)
 	option := options.Update().SetUpsert(true)

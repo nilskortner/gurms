@@ -48,8 +48,8 @@ func NewLocalNodeStatusManager(
 func (n *LocalNodeStatusManager) UpsertLocalNodeInfo(update *option.Update) error {
 	nodeId := n.LocalMember.Key.NodeId
 	memberFilter := option.NewFilter()
-	memberFilter.Eq(n.LocalMember.Key.ClusterId, n.LocalMember.Key.ClusterId)
-	memberFilter.Eq(configdiscovery, nodeId)
+	memberFilter.Eq("_id."+n.LocalMember.Key.ClusterId, n.LocalMember.Key.ClusterId)
+	memberFilter.Eq("_id."+nodeId, nodeId)
 
 	err := n.SharedConfigService.Upsert(memberFilter, update, n.LocalMember.Name)
 	if err == nil {
