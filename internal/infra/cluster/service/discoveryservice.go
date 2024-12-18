@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"gurms/internal/infra/address"
 	"gurms/internal/infra/cluster/node/nodetype"
@@ -128,7 +129,7 @@ func NewDiscoveryService(
 }
 
 func (d *DiscoveryService) Start() {
-	listenLeaderChangeEvent()
+	d.listenLeaderChangeEvent()
 
 	//Members
 	listenMembersChangeEvent()
@@ -193,9 +194,26 @@ func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 }
 
 func (d *DiscoveryService) listenLeaderChangeEvent() {
-	d.SharedConfigService.Subscribe()
+	go func() {
+		stream, err := d.SharedConfigService.Subscribe("leader")
+		if err != nil {
+			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection:", err)
+		}
+		ctx := context.Background()
+		for stream.Next(ctx) {
+			var changedLeader *configdiscovery.Leader
+			if err := stream.Decode(&changedLeader); err != nil {
+				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+			}
+			var clusterId string
+			if changedLeader != nil {
+				clusterId = changedLeader.ClusterId
+			} else {
+				ChangeStreamUtil.getIdAsString()
+			}
+		}
 
-	return
+	}()
 }
 
 func (d *DiscoveryService) listenMembersChangeEvent() {

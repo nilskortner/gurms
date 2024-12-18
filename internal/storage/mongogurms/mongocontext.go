@@ -1,8 +1,8 @@
-package mongo
+package mongogurms
 
 import (
 	"fmt"
-	"gurms/internal/storage/mongo/entity"
+	"gurms/internal/storage/mongogurms/entity"
 	"net/url"
 	"strings"
 

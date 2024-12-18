@@ -5,8 +5,8 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/mongoproperties"
-	mongostorage "gurms/internal/storage/mongo"
-	"gurms/internal/storage/mongo/operation/option"
+	"gurms/internal/storage/mongogurms"
+	"gurms/internal/storage/mongogurms/operation/option"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -19,7 +19,7 @@ var SHAREDCONFIGLOGGER logger.Logger = factory.GetLogger("SharedConfig")
 const EXPIRABLE_RECORD_TTL = 60
 
 type SharedConfigService struct {
-	mongoClient *mongostorage.GurmsMongoClient
+	mongoClient *mongogurms.GurmsMongoClient
 }
 
 // TODO: make bson tags for structs
@@ -27,7 +27,7 @@ type SharedConfigService struct {
 // TODO: look into sharding functions
 
 func NewSharedConfigService(properties *mongoproperties.MongoProperties) *SharedConfigService {
-	mongoClient, err := mongostorage.NewGurmsMongoClient(properties, "shared-config")
+	mongoClient, err := mongogurms.NewGurmsMongoClient(properties, "shared-config")
 	if err != nil {
 		SHAREDCONFIGLOGGER.FatalWithError("failed to create the shared config service", err)
 	}
@@ -46,8 +46,8 @@ func setIndexes(ctx context.Context, database *mongo.Database) {
 	ensureMemberIndexes(database)
 }
 
-func (s *SharedConfigService) Subscribe() {
-	s.mongoClient.Watch
+func (s *SharedConfigService) Subscribe(name string) (*mongo.ChangeStream, error) {
+	return s.mongoClient.Operations.Watch(name)
 }
 
 func (s *SharedConfigService) updateOne(filter *option.Filter, update *option.Update, entity string, upsert bool) error {
