@@ -5,4 +5,6 @@ type MongoOperationsSupport interface {
 	FindOne()
 	FindOneWithFilter()
 	FindOneWithQueryOptions()
+
+	Insert(value any) error
 }

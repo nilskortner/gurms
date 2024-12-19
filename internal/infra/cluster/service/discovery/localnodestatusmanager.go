@@ -2,9 +2,10 @@ package discovery
 
 import (
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
+	"gurms/internal/infra/collection"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
-	"gurms/internal/storage/mongo/operation/option"
+	"gurms/internal/storage/mongogurms/operation/option"
 	"sync/atomic"
 	"time"
 )
@@ -22,10 +23,13 @@ type LocalNodeStatusManager struct {
 	IsHealthStatusUpdating  atomic.Bool
 }
 
-type DiscoveryService interface{}
+type DiscoveryService interface {
+	FindQualifiedMembersToBeLeader() []*configdiscovery.Member
+}
 
 type SharedConfigService interface {
 	Upsert(filter *option.Filter, update *option.Update, entity string) error
+	Insert(leader configdiscovery.Leader) (bool, error)
 }
 
 func NewLocalNodeStatusManager(
@@ -57,4 +61,14 @@ func (n *LocalNodeStatusManager) UpsertLocalNodeInfo(update *option.Update) erro
 		return nil
 	}
 	return err
+}
+
+func (n *LocalNodeStatusManager) TryBecomeFirstLeader() (bool, error) {
+	qualifiedMembersToBeLeader := n.DiscoveryService.FindQualifiedMembersToBeLeader()
+	if !collection.Contains(qualifiedMembersToBeLeader, n.LocalMember) {
+		return false, nil
+	}
+	clusterId := n.LocalMember.Key.ClusterId
+	localLeader := configdiscovery.NewLeader(clusterId, n.LocalMember.Key.NodeId, time.Now(), 1)
+	return n.SharedConfigService.Insert(localLeader)
 }

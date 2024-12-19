@@ -6,6 +6,7 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/mongoproperties"
+	"gurms/internal/storage/mongogurms/operation"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/event"
@@ -19,7 +20,7 @@ var names map[string]struct{} = make(map[string]struct{}, 8)
 type GurmsMongoClient struct {
 	TopologyDescription *event.TopologyDescription
 	Ctx                 *MongoContext
-	Operations          *GurmsMongoOperations
+	Operations          *operation.GurmsMongoOperations
 }
 
 func NewGurmsMongoClient(properties *mongoproperties.MongoProperties, name string) (*GurmsMongoClient, error) {

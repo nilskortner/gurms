@@ -30,10 +30,10 @@ type Key struct {
 }
 
 type MemberStatus struct {
-	hasJoinedCluster  bool      `bson:"has_joined_cluster"`
-	isHealthy         bool      `bson:"is_healthy"`
-	isActive          bool      `bson:"is_active"`
-	lastHeartbeatDate time.Time `bson:"last_heartbeat_date"`
+	HasJoinedCluster  bool      `bson:"has_joined_cluster"`
+	IsHealthy         bool      `bson:"is_healthy"`
+	IsActive          bool      `bson:"is_active"`
+	LastHeartbeatDate time.Time `bson:"last_heartbeat_date"`
 }
 
 func NewMember(

@@ -50,6 +50,10 @@ func (s *SharedConfigService) Subscribe(name string) (*mongo.ChangeStream, error
 	return s.mongoClient.Operations.Watch(name)
 }
 
+func (s *SharedConfigService) Insert(record any) error {
+	return s.mongoClient.Insert(record)
+}
+
 func (s *SharedConfigService) updateOne(filter *option.Filter, update *option.Update, entity string, upsert bool) error {
 	collection := s.mongoClient.Ctx.Database.Collection(entity)
 	option := options.Update().SetUpsert(true)

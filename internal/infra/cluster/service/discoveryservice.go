@@ -12,14 +12,25 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/cluster"
-	"gurms/internal/storage/mongo/operation/option"
+	"gurms/internal/storage/mongogurms/operation/option"
+	"math"
+	"math/rand"
 	"sync"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 var DISCOVERYSERVICELOGGER logger.Logger = factory.GetLogger("DiscoveryService")
+
+const (
+	INSERT     = "insert"
+	REPLACE    = "replace"
+	UPDATE     = "update"
+	DELETE     = "delete"
+	INVALIDATE = "invalidate"
+)
 
 type DiscoveryService struct {
 	DiscoveryProperties *cluster.DiscoveryProperties
@@ -201,18 +212,65 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 		}
 		ctx := context.Background()
 		for stream.Next(ctx) {
-			var changedLeader *configdiscovery.Leader
-			if err := stream.Decode(&changedLeader); err != nil {
+			var streamEvent bson.M
+			if err := stream.Decode(&streamEvent); err != nil {
 				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				continue
+			}
+			var changedLeader *configdiscovery.Leader
+			if fullDoc, ok := streamEvent["fullDocument"].(bson.M); ok {
+				if err := bson.Unmarshal(fullDoc, &changedLeader); err != nil {
+					DISCOVERYSERVICELOGGER.FatalWithError("Error unmarshaling changedLeader:", err)
+					continue
+				}
 			}
 			var clusterId string
 			if changedLeader != nil {
 				clusterId = changedLeader.ClusterId
 			} else {
-				ChangeStreamUtil.getIdAsString()
+				clusterId = ChangeStreamUtil.getIdAsString()
+			}
+			if clusterId != d.LocalNodeStatusManager.LocalMember.Key.ClusterId {
+				return
+			}
+			if operationType, ok := streamEvent["operationType"].(string); ok {
+				switch operationType {
+				case INSERT, REPLACE, UPDATE:
+					if d.Leader == nil {
+						str := fmt.Sprint("The leader has changed to: %s", changedLeader)
+						DISCOVERYSERVICELOGGER.InfoWithArgs(str)
+					} else if d.Leader.NodeId != changedLeader.NodeId || d.Leader.Generation != changedLeader.Generation {
+						str := fmt.Sprint("The leader has changed from: (%s) to: %s", d.Leader, changedLeader)
+						DISCOVERYSERVICELOGGER.InfoWithArgs(str)
+					}
+					d.Leader = changedLeader
+				case DELETE:
+					d.Leader = nil
+					delay := int(5 * rand.Float64())
+					str := fmt.Sprint("The leader has been deleted. Trying to be the first leader after %s seconds", delay)
+					DISCOVERYSERVICELOGGER.InfoWithArgs(str)
+					time.Sleep(time.Duration(delay) * time.Second)
+					if d.Leader == nil {
+						isLeader, err := d.LocalNodeStatusManager.TryBecomeFirstLeader()
+						if err != nil {
+							DISCOVERYSERVICELOGGER.ErrorWithMessage(
+								"Caught an error while trying to become the first leader", err,
+							)
+						} else if isLeader {
+							DISCOVERYSERVICELOGGER.InfoWithArgs("The local node has become the first leader")
+						} else {
+							DISCOVERYSERVICELOGGER.InfoWithArgs("Another node has become the first leader")
+						}
+					}
+				case INVALIDATE:
+					d.Leader = nil
+				default:
+					str := fmt.Sprint("Detected an illegal operation"+
+						" on the collection leader in the change stream event: %s", streamEvent)
+					DISCOVERYSERVICELOGGER.Fatal(str)
+				}
 			}
 		}
-
 	}()
 }
 
@@ -273,6 +331,29 @@ func (d *DiscoveryService) updateOtherActiveConnectedMemberList(isAdd bool, memb
 	d.OtherActiveConnectedMembers = collection.UnionThreeSlices(d.OtherActiveConnectedAiServingMembers,
 		d.OtherActiveConnectedGatewayMembers, d.OtherActiveConnectedServiceMembers)
 }
+
+// region Leader
+
+func (d *DiscoveryService) FindQualifiedMembersToBeLeader() []*configdiscovery.Member {
+	members := make([]*configdiscovery.Member, len(d.ActiveSortedServiceMembers))
+	highestPriority := math.MinInt
+	for _, member := range d.ActiveSortedServiceMembers {
+		if member.Priority < highestPriority {
+			return members
+		}
+		if d.isQualifiedToBeLeader(member) {
+			highestPriority = member.Priority
+			members = append(members, member)
+		}
+	}
+	return members
+}
+
+func (d *DiscoveryService) isQualifiedToBeLeader(member *configdiscovery.Member) bool {
+	return member.NodeType == nodetype.SERVICE && member.IsLeaderEligible && member.Status.IsActive
+}
+
+// end region
 
 // region MemberConnectionListener
 

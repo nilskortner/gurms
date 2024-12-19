@@ -373,3 +373,12 @@ func RemoveByValue[T comparable](slice []T, value T) []T {
 	}
 	return result
 }
+
+func Contains[T comparable](slice []T, value T) bool {
+	for _, element := range slice {
+		if element == value {
+			return true
+		}
+	}
+	return false
+}

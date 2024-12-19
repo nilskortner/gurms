@@ -2,6 +2,7 @@ package mongogurms
 
 import (
 	"fmt"
+	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/storage/mongogurms/entity"
 	"net/url"
 	"strings"
@@ -54,6 +55,17 @@ func NewMongoContext(connectionString string, onServerDescriptionChange func([]e
 		AdminDatabase:  client.Database("admin"),
 		ConfigDatabase: client.Database("config"),
 	}, nil
+}
+
+func (m *MongoContext) GetCollection(value any) (*mongo.Collection, error) {
+	switch value.(type) {
+	case configdiscovery.Leader:
+		return m.Database.Collection("leader"), nil
+	case configdiscovery.Member:
+		return m.Database.Collection("member"), nil
+	default:
+		return nil, fmt.Errorf("unsupported type")
+	}
 }
 
 func getDatabaseFromConnectionString(connectionString string) (string, error) {
