@@ -29,7 +29,7 @@ type DiscoveryService interface {
 
 type SharedConfigService interface {
 	Upsert(filter *option.Filter, update *option.Update, entity string) error
-	Insert(leader configdiscovery.Leader) (bool, error)
+	Insert(value any) (bool, error)
 }
 
 func NewLocalNodeStatusManager(

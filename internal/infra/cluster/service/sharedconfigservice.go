@@ -46,12 +46,12 @@ func setIndexes(ctx context.Context, database *mongo.Database) {
 	ensureMemberIndexes(database)
 }
 
-func (s *SharedConfigService) Subscribe(name string) (*mongo.ChangeStream, error) {
-	return s.mongoClient.Operations.Watch(name)
+func (s *SharedConfigService) Subscribe(name string, opts *options.ChangeStreamOptionsBuilder) (*mongo.ChangeStream, error) {
+	return s.mongoClient.Operations.Watch(name, opts)
 }
 
 func (s *SharedConfigService) Insert(record any) error {
-	return s.mongoClient.Insert(record)
+	return s.mongoClient.Operations.Insert(record)
 }
 
 func (s *SharedConfigService) updateOne(filter *option.Filter, update *option.Update, entity string, upsert bool) error {

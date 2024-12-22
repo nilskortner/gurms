@@ -20,6 +20,7 @@ import (
 
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var DISCOVERYSERVICELOGGER logger.Logger = factory.GetLogger("DiscoveryService")
@@ -56,6 +57,8 @@ type DiscoveryService struct {
 	MembersChangeListeners []discovery.MembersChangeListener
 
 	HeartbeatTimeoutMillis int64
+
+	cancelLeaderChangeRoutine context.CancelFunc
 
 	mu sync.Mutex
 }
@@ -206,11 +209,13 @@ func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 
 func (d *DiscoveryService) listenLeaderChangeEvent() {
 	go func() {
-		stream, err := d.SharedConfigService.Subscribe("leader")
+		opts := options.ChangeStream().SetFullDocument(options.UpdateLookup)
+		stream, err := d.SharedConfigService.Subscribe("leader", opts)
 		if err != nil {
 			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection:", err)
 		}
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		d.cancelLeaderChangeRoutine = cancel
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {
@@ -218,20 +223,23 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 				continue
 			}
 			var changedLeader *configdiscovery.Leader
-			if fullDoc, ok := streamEvent["fullDocument"].(bson.M); ok {
-				if err := bson.Unmarshal(fullDoc, &changedLeader); err != nil {
-					DISCOVERYSERVICELOGGER.FatalWithError("Error unmarshaling changedLeader:", err)
-					continue
-				}
+			if err := stream.Decode(&changedLeader); err != nil {
+				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				continue
+			}
+			fullDoc, fullDocumentFound := streamEvent["fullDocument"].(bson.M)
+			if !fullDocumentFound && changedLeader == nil {
+				DISCOVERYSERVICELOGGER.Fatal("clusterId can not be obtained")
+				continue
 			}
 			var clusterId string
 			if changedLeader != nil {
 				clusterId = changedLeader.ClusterId
 			} else {
-				clusterId = ChangeStreamUtil.getIdAsString()
+				clusterId = fullDoc["_id"].(string)
 			}
 			if clusterId != d.LocalNodeStatusManager.LocalMember.Key.ClusterId {
-				return
+				continue
 			}
 			if operationType, ok := streamEvent["operationType"].(string); ok {
 				switch operationType {
@@ -275,7 +283,9 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 }
 
 func (d *DiscoveryService) listenMembersChangeEvent() {
+	go func() {
 
+	}()
 }
 
 func (d *DiscoveryService) GetMember(nodeId string) *configdiscovery.Member {

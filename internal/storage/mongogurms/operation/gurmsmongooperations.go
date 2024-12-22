@@ -4,21 +4,32 @@ import (
 	"context"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
-	"gurms/internal/storage/mongogurms"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var GURMSMONGOOPERATIONSLOGGER logger.Logger = factory.GetLogger("GurmsMongoOperationsLogger")
 
 type GurmsMongoOperations struct {
-	ctx *mongogurms.MongoContext
+	ctx MongoContextInjection
 }
 
-func (g *GurmsMongoOperations) Watch(name string) (*mongo.ChangeStream, error) {
-	collection := g.ctx.Database.Collection(name)
+type MongoContextInjection interface {
+	GetDatabaseCollection(name string) *mongo.Collection
+	GetCollectionByValue(value any) (*mongo.Collection, error)
+}
+
+func NewGurmsMongoOperations(ctx MongoContextInjection) *GurmsMongoOperations {
+	return &GurmsMongoOperations{
+		ctx: ctx,
+	}
+}
+
+func (g *GurmsMongoOperations) Watch(name string, opts *options.ChangeStreamOptionsBuilder) (*mongo.ChangeStream, error) {
+	collection := g.ctx.GetDatabaseCollection(name)
 	ctx := context.Background()
-	stream, err := collection.Watch(ctx, nil)
+	stream, err := collection.Watch(ctx, mongo.Pipeline{}, opts)
 	if err != nil {
 		GURMSMONGOOPERATIONSLOGGER.FatalWithError("couldnt subscribe to stream", err)
 		return nil, err
@@ -29,10 +40,10 @@ func (g *GurmsMongoOperations) Insert(value any) error {
 	return g.InsertWithSession(nil, value)
 }
 
-// TODO: mongoexception translator
+// TODO: do i need mongoexception translator?
 
 func (g *GurmsMongoOperations) InsertWithSession(session *mongo.Session, value any) error {
-	collection, err := g.ctx.GetCollection(value)
+	collection, err := g.ctx.GetCollectionByValue(value)
 	if err != nil {
 		return err
 	}
@@ -48,8 +59,11 @@ func (g *GurmsMongoOperations) InsertWithSession(session *mongo.Session, value a
 	} else {
 		_, err = collection.InsertOne(ctx, value)
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (g *GurmsMongoOperations) FindById()

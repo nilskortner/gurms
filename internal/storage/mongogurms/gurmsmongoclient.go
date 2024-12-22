@@ -20,7 +20,7 @@ var names map[string]struct{} = make(map[string]struct{}, 8)
 type GurmsMongoClient struct {
 	TopologyDescription *event.TopologyDescription
 	Ctx                 *MongoContext
-	Operations          *operation.GurmsMongoOperations
+	Operations          operation.MongoOperationsSupport
 }
 
 func NewGurmsMongoClient(properties *mongoproperties.MongoProperties, name string) (*GurmsMongoClient, error) {
@@ -62,7 +62,7 @@ func gurmsMongoClient(properties *mongoproperties.MongoProperties,
 	if err != nil {
 		return nil, err
 	}
-	operations := NewGurmsMongoOperations(ctx)
+	var operations operation.MongoOperationsSupport = operation.NewGurmsMongoOperations(ctx)
 
 	return &GurmsMongoClient{
 		TopologyDescription: &topologyDescription,

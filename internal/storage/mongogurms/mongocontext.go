@@ -84,3 +84,12 @@ func getDatabaseFromConnectionString(connectionString string) (string, error) {
 	database := strings.TrimPrefix(parsedURL.Path, "/")
 	return database, nil
 }
+
+// region: injection functions
+func (m *MongoContext) GetDatabaseCollection(name string) *mongo.Collection {
+	return m.Database.Collection(name)
+}
+
+func (m *MongoContext) GetCollectionByValue(value any) (*mongo.Collection, error) {
+	return m.GetCollection(value)
+}
