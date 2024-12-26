@@ -59,6 +59,7 @@ type DiscoveryService struct {
 	HeartbeatTimeoutMillis int64
 
 	cancelLeaderChangeRoutine context.CancelFunc
+	cancelMemberChangeRoutine context.CancelFunc
 
 	mu sync.Mutex
 }
@@ -146,7 +147,7 @@ func (d *DiscoveryService) Start() {
 	d.listenLeaderChangeEvent()
 
 	//Members
-	listenMembersChangeEvent()
+	d.listenMembersChangeEvent()
 	var memberList []*configdiscovery.Member
 	memberList = queryMembers()
 	time.Sleep(CRUD_TIMEOUT_DURATION)
@@ -284,7 +285,49 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 
 func (d *DiscoveryService) listenMembersChangeEvent() {
 	go func() {
+		opts := options.ChangeStream().SetFullDocument(options.Default)
+		stream, err := d.SharedConfigService.Subscribe("member", opts)
+		if err != nil {
+			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection:", err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		d.cancelMemberChangeRoutine = cancel
+		for stream.Next(ctx) {
+			var streamEvent bson.M
+			if err := stream.Decode(&streamEvent); err != nil {
+				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				continue
+			}
+			var changedMember *configdiscovery.Member
+			if err := stream.Decode(&changedMember); err != nil {
+				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				continue
+			}
+			defaultDoc, defaultDocumentFound := streamEvent["documentKey"].(bson.M)
+			if !defaultDocumentFound && changedMember == nil {
+				DISCOVERYSERVICELOGGER.Fatal("clusterId can not be obtained")
+				continue
+			}
+			var clusterId string
+			if changedMember != nil {
+				clusterId = changedMember.Key.ClusterId
+			} else {
+				clusterId = defaultDoc["cluster_id"].(string)
+			}
+			nodeId := defaultDoc["_id"].(string)
+			if clusterId != d.LocalNodeStatusManager.LocalMember.Key.ClusterId {
+				continue
+			}
 
+			if operationType, ok := streamEvent["operationType"].(string); ok {
+				switch operationType {
+				case INSERT, REPLACE:
+					onMemberAddedOrReplaced(changedMember)
+				case UPDATE:
+					onMemberUpdated(nodeId, streamEvent[updatedescription])
+				}
+			}
+		}
 	}()
 }
 
