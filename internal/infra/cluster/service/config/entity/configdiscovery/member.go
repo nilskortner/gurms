@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const MEMBERNAME = "member"
+
 type Member struct {
 	Key              Key                   `bson:",inline"`
 	Zone             string                `bson:"zone"`

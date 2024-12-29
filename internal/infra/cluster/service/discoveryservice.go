@@ -25,6 +25,7 @@ import (
 
 var DISCOVERYSERVICELOGGER logger.Logger = factory.GetLogger("DiscoveryService")
 
+const CRUD_TIMEOUT_DURATION = 1 * time.Minute
 const (
 	INSERT     = "insert"
 	REPLACE    = "replace"
@@ -149,7 +150,7 @@ func (d *DiscoveryService) Start() {
 	//Members
 	d.listenMembersChangeEvent()
 	var memberList []*configdiscovery.Member
-	memberList = queryMembers()
+	memberList = d.queryMembers()
 	time.Sleep(CRUD_TIMEOUT_DURATION)
 
 	localMember := d.LocalNodeStatusManager.LocalMember
@@ -159,14 +160,14 @@ func (d *DiscoveryService) Start() {
 		isSameId = localMember.IsSameId(member)
 		isSameAddress = localMember.IsSameAddress(member)
 		if isSameId || isSameAddress {
-			if !isAvailableMember(member, time.Now()) {
+			if !d.isAvailableMember(member, time.Now()) {
 				var removedMemberIfInavailable bool
 				if isSameId {
-					removedMemberIfInavailable(member.Key.NodeId, "", "")
+					d.removeMemberIfInavailable(member.Key.NodeId, "", 0)
 				} else {
-					removedMemberIfInavailable(member.Key.NodeId,
-						member.Host,
-						member.Port)
+					d.removeMemberIfInavailable(member.Key.NodeId,
+						member.MemberHost,
+						member.MemberPort)
 				}
 				isConflictedNodeRemoved := removedMemberIfInavailable
 				if isConflictedNodeRemoved {
@@ -206,6 +207,28 @@ func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 		}
 		return listener
 	})
+}
+
+func (d *DiscoveryService) queryMembers() []*configdiscovery.Member {
+	clusterId := d.LocalNodeStatusManager.LocalMember.Key.ClusterId
+	filter := eq(Member.ID_CLUSTER_ID, clusterId)
+	return d.SharedConfigService.find(configdiscovery.MEMBERNAME, filter)
+}
+
+func (d *DiscoveryService) removeMemberIfInavailable(
+	nodeId string,
+	memberHost string,
+	memberPort int) (bool, error) {
+
+	clusterId := d.LocalNodeStatusManager.LocalMember.Key.ClusterId
+	filter := option.Filter.newBuilder(3)
+	if memberHost == "" {
+		filter = filter.eq(ID_CLUSTER_ID, clusterId).eq(ID_NODE_ID, nodeId)
+	} else {
+		filter = filter.eq(a, memberHost).eq(a, memberPort)
+	}
+	return d.SharedConfigService.removeOne(configdiscovery.MEMBERNAME, filter)
+
 }
 
 func (d *DiscoveryService) listenLeaderChangeEvent() {
@@ -288,19 +311,19 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 		opts := options.ChangeStream().SetFullDocument(options.Default)
 		stream, err := d.SharedConfigService.Subscribe("member", opts)
 		if err != nil {
-			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection:", err)
+			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection member:", err)
 		}
 		ctx, cancel := context.WithCancel(context.Background())
 		d.cancelMemberChangeRoutine = cancel
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {
-				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event of member:", err)
 				continue
 			}
 			var changedMember *configdiscovery.Member
 			if err := stream.Decode(&changedMember); err != nil {
-				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event to member:", err)
 				continue
 			}
 			defaultDoc, defaultDocumentFound := streamEvent["documentKey"].(bson.M)
@@ -325,10 +348,68 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 					onMemberAddedOrReplaced(changedMember)
 				case UPDATE:
 					onMemberUpdated(nodeId, streamEvent[updatedescription])
+				case DELETE:
+					deletedMember, exists := d.AllKnownMembers.Get(nodeId)
+					if exists {
+						d.AllKnownMembers.Remove(nodeId)
+					} else {
+						continue
+					}
+					str := fmt.Sprint("a member has been deleted: %v", deletedMember)
+					DISCOVERYSERVICELOGGER.InfoWithArgs(str)
+					d.updateOtherActiveConnectedMemberList(false, deletedMember)
+
+					if nodeId == d.LocalNodeStatusManager.LocalMember.Key.NodeId {
+						if !d.LocalNodeStatusManager.IsClosing {
+							d.LocalNodeStatusManager.registerLocalNodeAsMember(true)
+						}
+					}
+				case INVALIDATE:
+					for key, deletetedMember := range d.AllKnownMembers.Items() {
+						str := fmt.Sprint("a member has been deleted: %v", deletetedMember)
+						DISCOVERYSERVICELOGGER.InfoWithArgs(str)
+						d.updateOtherActiveConnectedMemberList(false, deletetedMember)
+						d.AllKnownMembers.Remove(key)
+					}
+
+				default:
+					str := fmt.Sprint("detected an illegal operation on the collection \""+
+						configdiscovery.MEMBERNAME+"\" in the change stream event: %v", streamEvent)
+					DISCOVERYSERVICELOGGER.Fatal(str)
 				}
 			}
+			d.updateActiveMembers(d.AllKnownMembers.Items())
+			d.ConnectionService.updateHasConnectedToAllMembers(d.AllKnownMembers)
 		}
 	}()
+}
+
+func (d *DiscoveryService) onMemberAddedOrReplaced(newMember *configdiscovery.Member) {
+	nodeId := newMember.Key.NodeId
+	localMember := d.LocalNodeStatusManager.LocalMember
+	isLocalNode := nodeId == localMember.Key.NodeId
+	if d.AllKnownMembers.SetIfAbsent(nodeId, newMember) == true {
+		str := fmt.Sprint("a new member has been added: ")
+		DISCOVERYSERVICELOGGER.InfoWithArgs(str, newMember)
+	}
+
+	d.mu.Lock()
+	if isLocalNode {
+		d.LocalNodeStatusManager.UpdateInfo(newMember)
+	}
+	if newMember.Status.IsActive && d.ConnectionService.IsMemberConnected(nodeId) {
+		d.updateOtherActiveConnectedMemberList(true, newMember)
+		if d.notifyMembersChangeFuture != nil {
+			notifyMembersChangeFuture.cancel(false)
+		}
+		d.notifyMembersChangeFuture =
+	}
+	d.mu.Unlock()
+	
+	shouldLocalNodeBeClient := compareMemberPriority(locallocalMember, newnewMember) < 0
+	if !isLocalNode && shouldLocalNodeBeClient {
+		d.ConnectionService.connectMemberUntilSucceedOrRemoved(newMember)
+	}
 }
 
 func (d *DiscoveryService) GetMember(nodeId string) *configdiscovery.Member {
@@ -338,6 +419,12 @@ func (d *DiscoveryService) GetMember(nodeId string) *configdiscovery.Member {
 
 func (d *DiscoveryService) IsKnownMember(nodeId string) bool {
 	return d.AllKnownMembers.Has(nodeId)
+}
+
+func (d *DiscoveryService) isAvailableMember(knownMember *configdiscovery.Member, now time.Time) bool {
+	memberHeartbeat := knownMember.Status.LastHeartbeatDate
+	var t time.Time
+	return memberHeartbeat != t && (now.UnixMilli()-memberHeartbeat.UnixMilli() < d.HeartbeatTimeoutMillis)
 }
 
 func (d *DiscoveryService) updateOtherActiveConnectedMemberList(isAdd bool, member *configdiscovery.Member) {
