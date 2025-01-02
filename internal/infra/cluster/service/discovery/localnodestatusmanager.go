@@ -72,3 +72,31 @@ func (n *LocalNodeStatusManager) TryBecomeFirstLeader() (bool, error) {
 	localLeader := configdiscovery.NewLeader(clusterId, n.LocalMember.Key.NodeId, time.Now(), 1)
 	return n.SharedConfigService.Insert(localLeader)
 }
+
+func (n *LocalNodeStatusManager) UnregisterLocalMemberLeadership() (bool, error) {
+	query := option.NewFilter()
+	query.Eq()
+	query.Eq()
+	return n.SharedConfigService.RemoveOne("leader", query)
+}
+
+func (n *LocalNodeStatusManager) UpdateInfo(member *configdiscovery.Member) {
+	isLeaderEligible := member.IsLeaderEligible
+	wasLeaderEligible := n.LocalMember.IsLeaderEligible
+	isLeaderEligibleChanged := isLeaderEligible != wasLeaderEligible
+	n.LocalMember = member
+	if isLeaderEligibleChanged {
+		if isLeaderEligible {
+			_, err := n.TryBecomeFirstLeader()
+			if err != nil {
+				LOCALNODESTATUSMANAGERLOGGER.ErrorWithMessage("caught an error while trying to become first leader", err)
+			}
+		} else {
+			_, err := n.UnregisterLocalMemberLeadership()
+			if err != nil {
+				LOCALNODESTATUSMANAGERLOGGER.ErrorWithMessage(
+					"caught an error while unregistering the leadership of the local node ", err)
+			}
+		}
+	}
+}

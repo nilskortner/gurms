@@ -109,9 +109,9 @@ func NewMemberStatus(hasJoinedCluster bool,
 	lastHearthbeatDate time.Time) *MemberStatus {
 
 	return &MemberStatus{
-		hasJoinedCluster:  hasJoinedCluster,
-		isHealthy:         isHealthy,
-		isActive:          isActive,
-		lastHeartbeatDate: lastHearthbeatDate,
+		HasJoinedCluster:  hasJoinedCluster,
+		IsHealthy:         isHealthy,
+		IsActive:          isActive,
+		LastHeartbeatDate: lastHearthbeatDate,
 	}
 }

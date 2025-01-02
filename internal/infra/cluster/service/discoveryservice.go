@@ -16,6 +16,7 @@ import (
 	"math"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -35,6 +36,8 @@ const (
 )
 
 type DiscoveryService struct {
+	notifyMembersChangeFuture *Future
+
 	DiscoveryProperties *cluster.DiscoveryProperties
 
 	SharedConfigService *SharedConfigService
@@ -106,9 +109,10 @@ func NewDiscoveryService(
 	heartbeatTimeoutMillis := (discoveryProperties.HeartbeatTimeoutSeconds * 1000)
 
 	discoveryService := &DiscoveryService{
-		DiscoveryProperties:    discoveryProperties,
-		SharedConfigService:    sharedConfigService,
-		HeartbeatTimeoutMillis: int64(heartbeatTimeoutMillis),
+		notifyMembersChangeFuture: &Future{},
+		DiscoveryProperties:       discoveryProperties,
+		SharedConfigService:       sharedConfigService,
+		HeartbeatTimeoutMillis:    int64(heartbeatTimeoutMillis),
 		// maps
 		ActiveSortedAiServingMembers:         make([]*configdiscovery.Member, 0),
 		ActiveSortedServiceMembers:           make([]*configdiscovery.Member, 0),
@@ -142,6 +146,23 @@ func NewDiscoveryService(
 	})
 
 	return discoveryService
+}
+
+func compareMemberPriority(m1, m2 *configdiscovery.Member) int {
+	m1Prio := m1.Priority
+	m2Prio := m2.Priority
+	if m1Prio == m2Prio {
+		if m1.Key.NodeId < m2.Key.NodeId {
+			return -1
+		} else {
+			return 1
+		}
+	}
+	if m1Prio < m2Prio {
+		return -1
+	} else {
+		return 1
+	}
 }
 
 func (d *DiscoveryService) Start() {
@@ -182,7 +203,7 @@ func (d *DiscoveryService) Start() {
 	}
 	//
 	d.onMemberAddedOrReplaced(localMember)
-	d.updateActiveMembers(d.AllKnownMembers.values())
+	d.updateActiveMembers(d.AllKnownMembers.Items())
 
 	err := d.LocalNodeStatusManager.registerLocalNodeAsMember(false)
 	if err != nil {
@@ -399,16 +420,30 @@ func (d *DiscoveryService) onMemberAddedOrReplaced(newMember *configdiscovery.Me
 	}
 	if newMember.Status.IsActive && d.ConnectionService.IsMemberConnected(nodeId) {
 		d.updateOtherActiveConnectedMemberList(true, newMember)
-		if d.notifyMembersChangeFuture != nil {
-			notifyMembersChangeFuture.cancel(false)
+		if d.notifyMembersChangeFuture.wait.Load() == true {
+			d.notifyMembersChangeFuture.wait.Store(false)
 		}
-		d.notifyMembersChangeFuture =
+		d.notifyMembersChangeFuture.computeFuture(
+			d.notifyMembersChangeListeners,
+			d.DiscoveryProperties.DelayToNotifyMemberChangeSeconds)
 	}
 	d.mu.Unlock()
-	
-	shouldLocalNodeBeClient := compareMemberPriority(locallocalMember, newnewMember) < 0
+
+	shouldLocalNodeBeClient := compareMemberPriority(localMember, newMember) < 0
 	if !isLocalNode && shouldLocalNodeBeClient {
 		d.ConnectionService.connectMemberUntilSucceedOrRemoved(newMember)
+	}
+}
+
+func (d *DiscoveryService) updateActiveMembers(allKnownMembers map[string]*configdiscovery.Member) {
+	knownMembers
+}
+
+// region event
+
+func (d *DiscoveryService) notifyMembersChangeListeners() {
+	for _, listener := range d.MembersChangeListeners {
+		listener.OnMembersChange()
 	}
 }
 
@@ -426,6 +461,8 @@ func (d *DiscoveryService) isAvailableMember(knownMember *configdiscovery.Member
 	var t time.Time
 	return memberHeartbeat != t && (now.UnixMilli()-memberHeartbeat.UnixMilli() < d.HeartbeatTimeoutMillis)
 }
+
+// end region
 
 func (d *DiscoveryService) updateOtherActiveConnectedMemberList(isAdd bool, member *configdiscovery.Member) {
 	d.mu.Lock()
@@ -535,3 +572,20 @@ func (d *DiscoveryMemberConnectionListener) OnDataReceived(value any) error {
 }
 
 // end region
+
+// region future
+type Future struct {
+	wait atomic.Bool
+}
+
+func (f *Future) computeFuture(notifyMembersChangeListeners func(), delay int) {
+	go func() {
+		f.wait.Store(true)
+		time.Sleep(time.Duration(delay) * time.Second)
+		if f.wait.Load() == false {
+			return
+		}
+		notifyMembersChangeListeners()
+		f.wait.Store(false)
+	}()
+}
