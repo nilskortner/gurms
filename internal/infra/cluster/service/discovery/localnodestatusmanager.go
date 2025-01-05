@@ -23,14 +23,19 @@ type LocalNodeStatusManager struct {
 	IsHealthStatusUpdating  atomic.Bool
 }
 
+// region injection
+
 type DiscoveryService interface {
 	FindQualifiedMembersToBeLeader() []*configdiscovery.Member
+	RegisterMember(*configdiscovery.Member) error
 }
 
 type SharedConfigService interface {
 	Upsert(filter *option.Filter, update *option.Update, entity string) error
 	Insert(value any) (bool, error)
 }
+
+// end region
 
 func NewLocalNodeStatusManager(
 	discoveryService DiscoveryService,
@@ -63,6 +68,11 @@ func (n *LocalNodeStatusManager) UpsertLocalNodeInfo(update *option.Update) erro
 	return err
 }
 
+func (n *LocalNodeStatusManager) RegisterLocalNodeAsMember(suppressDuplicateMemberError bool) error {
+	LOCALNODESTATUSMANAGERLOGGER.InfoWithArgs("Registering the local node as a member")
+	return n.DiscoveryService.RegisterMember(n.LocalMember)
+}
+
 func (n *LocalNodeStatusManager) TryBecomeFirstLeader() (bool, error) {
 	qualifiedMembersToBeLeader := n.DiscoveryService.FindQualifiedMembersToBeLeader()
 	if !collection.Contains(qualifiedMembersToBeLeader, n.LocalMember) {
@@ -78,6 +88,20 @@ func (n *LocalNodeStatusManager) UnregisterLocalMemberLeadership() (bool, error)
 	query.Eq()
 	query.Eq()
 	return n.SharedConfigService.RemoveOne("leader", query)
+}
+
+func (n *LocalNodeStatusManager) StartHeartbeat() {
+	if heartbeatFuture == nil && !heartbeatFuture.isDone() {
+		return
+	}
+	heartbeatFuture := computeFuture(func() {
+		if n.IsClosing {
+			return
+		}
+		now := time.Now()
+		errors := make([]error, 2)
+		err := n.UpsertLocalNodeInfo()
+	})
 }
 
 func (n *LocalNodeStatusManager) UpdateInfo(member *configdiscovery.Member) {

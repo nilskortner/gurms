@@ -22,6 +22,7 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"golang.org/x/exp/slices"
 )
 
 var DISCOVERYSERVICELOGGER logger.Logger = factory.GetLogger("DiscoveryService")
@@ -34,6 +35,8 @@ const (
 	DELETE     = "delete"
 	INVALIDATE = "invalidate"
 )
+
+var MEMBER_PRIORITY_COMPARATOR func(*configdiscovery.Member, *configdiscovery.Member) int = compareMemberPriority
 
 type DiscoveryService struct {
 	notifyMembersChangeFuture *Future
@@ -195,9 +198,9 @@ func (d *DiscoveryService) Start() {
 					continue
 				}
 			}
-			err := fmt.Errorf("Failed to bootstrap the local node because the local node has been registered. "+
+			err := fmt.Errorf("failed to bootstrap the local node because the local node has been registered. "+
 				"Local Node: %s. Registered Node: %s", localMember, member)
-			return err
+			DISCOVERYSERVICELOGGER.FatalWithError("runtime error: ", err)
 		}
 		d.onMemberAddedOrReplaced(member)
 	}
@@ -205,13 +208,15 @@ func (d *DiscoveryService) Start() {
 	d.onMemberAddedOrReplaced(localMember)
 	d.updateActiveMembers(d.AllKnownMembers.Items())
 
-	err := d.LocalNodeStatusManager.registerLocalNodeAsMember(false)
+	err := d.LocalNodeStatusManager.RegisterLocalNodeAsMember(false)
 	if err != nil {
-		fmt.Errorf("Caught an error while registering the local node as a member", err)
+		err = fmt.Errorf("Caught an error while registering the local node as a member", err)
+		DISCOVERYSERVICELOGGER.FatalWithError("runtime error: ", err)
 	}
-	isLeader, err := d.LocalNodeStatusManager.tryBecomeFirstLeader()
+	isLeader, err := d.LocalNodeStatusManager.TryBecomeFirstLeader()
 	if err != nil {
-		fmt.Errorf("Caught an error while trying to become the first leader", err)
+		err = fmt.Errorf("Caught an error while trying to become the first leader", err)
+		DISCOVERYSERVICELOGGER.FatalWithError("runtime error: ", err)
 	}
 	if isLeader {
 		DISCOVERYSERVICELOGGER.InfoWithArgs("the local node has become the first leader")
@@ -436,7 +441,50 @@ func (d *DiscoveryService) onMemberAddedOrReplaced(newMember *configdiscovery.Me
 }
 
 func (d *DiscoveryService) updateActiveMembers(allKnownMembers map[string]*configdiscovery.Member) {
-	knownMembers
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	knownMembers := mapToSlice(allKnownMembers)
+	slices.SortFunc(knownMembers, MEMBER_PRIORITY_COMPARATOR)
+	size := len(knownMembers)
+	tempActiveSortedAiServingMembers := make([]*configdiscovery.Member, size)
+	tempActiveSortedGatewayMembers := make([]*configdiscovery.Member, size)
+	tempActiveSortedServiceMembers := make([]*configdiscovery.Member, size)
+	for _, member := range knownMembers {
+		if member.Status.IsActive {
+			switch member.NodeType {
+			case nodetype.AI_SERVING:
+				tempActiveSortedAiServingMembers = append(tempActiveSortedAiServingMembers, member)
+			case nodetype.GATEWAY:
+				tempActiveSortedGatewayMembers = append(tempActiveSortedGatewayMembers, member)
+			case nodetype.SERVICE:
+				tempActiveSortedServiceMembers = append(tempActiveSortedServiceMembers, member)
+			}
+		}
+	}
+	d.ActiveSortedAiServingMembers = tempActiveSortedAiServingMembers
+	d.ActiveSortedGatewayMembers = tempActiveSortedGatewayMembers
+	d.ActiveSortedServiceMembers = tempActiveSortedServiceMembers
+}
+
+// region registration
+
+func (d *DiscoveryService) RegisterMember(member *configdiscovery.Member) error {
+	noClusterId := member.Key.ClusterId == ""
+	noNodeId := member.Key.NodeId == ""
+	if noClusterId {
+		if noNodeId {
+			return fmt.Errorf("failed to register (%v) "+
+				"because both the cluster ID and the node node ID are missing", member)
+		} else {
+			return fmt.Errorf("failed to register (%v) "+
+				"because the cluster ID is missing", member)
+		}
+	} else if noNodeId {
+		return fmt.Errorf("failed to register (%v) "+
+			"because the node ID is missing", member)
+	}
+	return d.SharedConfigService.Insert(member)
 }
 
 // region event
@@ -588,4 +636,13 @@ func (f *Future) computeFuture(notifyMembersChangeListeners func(), delay int) {
 		notifyMembersChangeListeners()
 		f.wait.Store(false)
 	}()
+}
+
+// util
+func mapToSlice[T comparable](values map[string]T) []T {
+	slice := make([]T, len(values))
+	for _, value := range values {
+		slice = append(slice, value)
+	}
+	return slice
 }
