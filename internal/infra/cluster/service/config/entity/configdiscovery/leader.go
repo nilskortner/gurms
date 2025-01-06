@@ -2,6 +2,8 @@ package configdiscovery
 
 import "time"
 
+const LEADERNAME = "leader"
+
 type Leader struct {
 	ClusterId  string    `bson:"_id"`
 	NodeId     string    `bson:"node_id"`

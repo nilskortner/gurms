@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"fmt"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/collection"
 	"gurms/internal/infra/logging/core/factory"
@@ -20,6 +21,7 @@ type LocalNodeStatusManager struct {
 	IsClosing               bool
 	HeartbeatInterval       time.Duration
 	HeartbeatIntervalMillis int64
+	heartbeatFuncActive     bool
 	IsHealthStatusUpdating  atomic.Bool
 }
 
@@ -28,6 +30,7 @@ type LocalNodeStatusManager struct {
 type DiscoveryService interface {
 	FindQualifiedMembersToBeLeader() []*configdiscovery.Member
 	RegisterMember(*configdiscovery.Member) error
+	GetLeader() *configdiscovery.Leader
 }
 
 type SharedConfigService interface {
@@ -90,18 +93,50 @@ func (n *LocalNodeStatusManager) UnregisterLocalMemberLeadership() (bool, error)
 	return n.SharedConfigService.RemoveOne("leader", query)
 }
 
+func (n *LocalNodeStatusManager) isLocalNodeLeader() bool {
+	leader := n.DiscoveryService.GetLeader()
+	return leader != nil &&
+		(leader.NodeId == n.LocalMember.Key.NodeId) &&
+		(leader.ClusterId == n.LocalMember.Key.ClusterId)
+}
+
 func (n *LocalNodeStatusManager) StartHeartbeat() {
-	if heartbeatFuture == nil && !heartbeatFuture.isDone() {
+	if n.heartbeatFuncActive == true {
 		return
 	}
-	heartbeatFuture := computeFuture(func() {
-		if n.IsClosing {
-			return
+	n.heartbeatFuncActive = true
+	go func() {
+		for {
+			if n.IsClosing {
+				return
+			}
+			timeout := n.HeartbeatInterval * time.Second
+			now := time.Now()
+			err := n.UpsertLocalNodeInfo()
+			if err != nil {
+				LOCALNODESTATUSMANAGERLOGGER.FatalWithError("caught an error while upserting the local node information", err)
+			}
+			if n.isLocalNodeLeader() {
+				err := n.renewLocalNodeAsLeader(now)
+				if err != nil {
+					LOCALNODESTATUSMANAGERLOGGER.FatalWithError("caught an error while renewing the local node as the leader", err)
+				}
+				if n.isLeader {
+					err = n.updateMemberStatus(now)
+					if err != nil {
+						LOCALNODESTATUSMANAGERLOGGER.FatalWithError("caught an error while updating the information "+
+							"\"lastHeatbeatDate\" of the local node", err)
+					}
+				}
+			}
+			if time.Since(now) > timeout {
+				err := fmt.Errorf("timeout while sending the heartbeat request")
+				LOCALNODESTATUSMANAGERLOGGER.Error(err)
+			} else {
+				n.LocalMember.Status.LastHeartbeatDate = now
+			}
 		}
-		now := time.Now()
-		errors := make([]error, 2)
-		err := n.UpsertLocalNodeInfo()
-	})
+	}()
 }
 
 func (n *LocalNodeStatusManager) UpdateInfo(member *configdiscovery.Member) {
@@ -122,5 +157,19 @@ func (n *LocalNodeStatusManager) UpdateInfo(member *configdiscovery.Member) {
 					"caught an error while unregistering the leadership of the local node ", err)
 			}
 		}
+	}
+}
+
+func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) bool {
+	leader := n.DiscoveryService.GetLeader()
+	if leader == nil {
+		return false
+	}
+	filter := option.Filter{}
+	update := option.NewUpdate()
+
+	result, err := SharedConfigService.UpdateOne(configdiscovery.LEADERNAME, filter, update)
+	if result.getMatchedCOunt() == 0 {
+		n.SharedConfigService.Insert(leader)
 	}
 }
