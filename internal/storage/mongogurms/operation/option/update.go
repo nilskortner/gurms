@@ -6,24 +6,15 @@ type Update struct {
 	Update bson.M
 }
 
-func NewUpdate(memberHost, adminApiAddress, wsAddress, tcpAddress, udpAddress any) *Update {
+func NewUpdate() *Update {
 	updateMap := make(bson.M, 0)
-	if memberHost != "" {
-		updateMap["memberHost"] = memberHost
-	}
-	if adminApiAddress != "" {
-		updateMap["adminApiAddress"] = adminApiAddress
-	}
-	if wsAddress != "" {
-		updateMap["wsAddress"] = wsAddress
-	}
-	if tcpAddress != "" {
-		updateMap["tcpAddress"] = tcpAddress
-	}
-	if udpAddress != "" {
-		updateMap["udpAddress"] = udpAddress
-	}
 	return &Update{
 		Update: updateMap,
+	}
+}
+
+func (u *Update) Set(name string, value any) {
+	if name != "" && value != nil {
+		u.Update[name] = value
 	}
 }

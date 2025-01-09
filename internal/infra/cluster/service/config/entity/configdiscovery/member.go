@@ -7,6 +7,29 @@ import (
 
 const MEMBERNAME = "member"
 
+const (
+	CLUSTERID         = "cluster_id"
+	NODEID            = "_id"
+	ZONE              = "zone"
+	NAME              = "name"
+	NODETYPE          = "nodetype"
+	NODEVERSION       = ",inline"
+	ISSEED            = "is_seed"
+	ISLEADERELIGIBLE  = "is_leader_eligible"
+	REGISTRATIONDATE  = "registration_date"
+	PRIORITY          = "priority"
+	MEMBERHOST        = "memberhost"
+	MEMBERPORT        = "member_port"
+	ADMINAPIADDRESS   = "admin_api_address"
+	WSADDRESS         = "ws_address"
+	TCPADDRESS        = "tcp_address"
+	UDPADDRESS        = "udp_address"
+	HASJOINEDCLUSTER  = "has_joined_cluster"
+	ISHEALTHY         = "is_healthy"
+	ISACTIVE          = "is_active"
+	LASTHEARTBEATDATE = "last_heartbeat_date"
+)
+
 type Member struct {
 	Key              Key                   `bson:",inline"`
 	Zone             string                `bson:"zone"`

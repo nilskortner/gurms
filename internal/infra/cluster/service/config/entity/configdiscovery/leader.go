@@ -4,6 +4,13 @@ import "time"
 
 const LEADERNAME = "leader"
 
+const (
+	CLUSTERIDLEADER  = "_id"
+	NODEIDLEADER     = "node_id"
+	RENEWDATELEADER  = "renew_date"
+	GENERATIONLEADER = "generation"
+)
+
 type Leader struct {
 	ClusterId  string    `bson:"_id"`
 	NodeId     string    `bson:"node_id"`

@@ -54,20 +54,27 @@ func (s *SharedConfigService) Insert(record any) error {
 	return s.mongoClient.Operations.Insert(record)
 }
 
-func (s *SharedConfigService) updateOne(filter *option.Filter, update *option.Update, entity string, upsert bool) error {
+func (s *SharedConfigService) updateOne(filter *option.Filter,
+	update *option.Update, entity string, upsert bool) (*mongo.UpdateResult, error) {
+
 	collection := s.mongoClient.Ctx.Database.Collection(entity)
 	option := options.Update().SetUpsert(true)
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	_, err := collection.UpdateOne(ctx, filter.Document, update.Update, option)
+	result, err := collection.UpdateOne(ctx, filter.Document, update.Update, option)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return result, nil
 }
 
 func (s *SharedConfigService) Upsert(filter *option.Filter, update *option.Update, entity string) error {
-	return s.updateOne(filter, update, entity, true)
+	_, err := s.updateOne(filter, update, entity, true)
+	return err
+}
+
+func (s *SharedConfigService) RemoveOne(name string, filter *option.Filter) (mongo.DeleteResult, error) {
+	return s.mongoClient.DeleteOne(name, filter)
 }
 
 // region Indexation

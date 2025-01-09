@@ -9,6 +9,8 @@ import (
 	"gurms/internal/storage/mongogurms/operation/option"
 	"sync/atomic"
 	"time"
+
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 var LOCALNODESTATUSMANAGERLOGGER logger.Logger = factory.GetLogger("LocalNodeStatusManager")
@@ -36,6 +38,8 @@ type DiscoveryService interface {
 type SharedConfigService interface {
 	Upsert(filter *option.Filter, update *option.Update, entity string) error
 	Insert(value any) (bool, error)
+	UpdateOne(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
+	RemoveOne(name string, filter *option.Filter) (*mongo.DeleteResult, error)
 }
 
 // end region
@@ -88,9 +92,13 @@ func (n *LocalNodeStatusManager) TryBecomeFirstLeader() (bool, error) {
 
 func (n *LocalNodeStatusManager) UnregisterLocalMemberLeadership() (bool, error) {
 	query := option.NewFilter()
-	query.Eq()
-	query.Eq()
-	return n.SharedConfigService.RemoveOne("leader", query)
+	query.Eq(configdiscovery.CLUSTERIDLEADER, n.LocalMember.Key.ClusterId)
+	query.Eq(configdiscovery.NODEIDLEADER, n.LocalMember.Key.NodeId)
+	result, err := n.SharedConfigService.RemoveOne("leader", query)
+	if err != nil {
+		return false, err
+	}
+	return result.DeletedCount > 0, nil
 }
 
 func (n *LocalNodeStatusManager) isLocalNodeLeader() bool {
@@ -112,16 +120,18 @@ func (n *LocalNodeStatusManager) StartHeartbeat() {
 			}
 			timeout := n.HeartbeatInterval * time.Second
 			now := time.Now()
-			err := n.UpsertLocalNodeInfo()
+			update := option.NewUpdate()
+			update.Set(configdiscovery.LASTHEARTBEATDATE, now)
+			err := n.UpsertLocalNodeInfo(update)
 			if err != nil {
 				LOCALNODESTATUSMANAGERLOGGER.FatalWithError("caught an error while upserting the local node information", err)
 			}
 			if n.isLocalNodeLeader() {
-				err := n.renewLocalNodeAsLeader(now)
+				isLeader, err := n.renewLocalNodeAsLeader(now)
 				if err != nil {
 					LOCALNODESTATUSMANAGERLOGGER.FatalWithError("caught an error while renewing the local node as the leader", err)
 				}
-				if n.isLeader {
+				if isLeader {
 					err = n.updateMemberStatus(now)
 					if err != nil {
 						LOCALNODESTATUSMANAGERLOGGER.FatalWithError("caught an error while updating the information "+
@@ -160,16 +170,31 @@ func (n *LocalNodeStatusManager) UpdateInfo(member *configdiscovery.Member) {
 	}
 }
 
-func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) bool {
+func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) (bool, error) {
 	leader := n.DiscoveryService.GetLeader()
 	if leader == nil {
-		return false
+		return false, nil
 	}
-	filter := option.Filter{}
+	filter := option.NewFilter()
+	filter.Eq(configdiscovery.CLUSTERID, n.LocalMember.Key.ClusterId)
+	filter.Eq(configdiscovery.NODEID, n.LocalMember.Key.NodeId)
+	filter.Eq(configdiscovery.GENERATIONLEADER, leader.Generation)
 	update := option.NewUpdate()
+	update.Set(configdiscovery.ISHEALTHY, n.LocalMember.Status.IsHealthy)
 
-	result, err := SharedConfigService.UpdateOne(configdiscovery.LEADERNAME, filter, update)
-	if result.getMatchedCOunt() == 0 {
-		n.SharedConfigService.Insert(leader)
+	result, err := n.SharedConfigService.UpdateOne(configdiscovery.LEADERNAME, filter, update)
+	if err != nil {
+		return false, err
 	}
+	if result.MatchedCount == 0 {
+		_, err = n.SharedConfigService.Insert(leader)
+		if err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (n *LocalNodeStatusManager) updateMemberStatus(lastHearthbeatDate time.Time) error {
+	knownMembers := n.DiscoveryService.
 }
