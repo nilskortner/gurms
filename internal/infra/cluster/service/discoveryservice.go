@@ -184,7 +184,7 @@ func (d *DiscoveryService) Start() {
 		isSameId = localMember.IsSameId(member)
 		isSameAddress = localMember.IsSameAddress(member)
 		if isSameId || isSameAddress {
-			if !d.isAvailableMember(member, time.Now()) {
+			if !d.IsAvailableMember(member, time.Now()) {
 				var removedMemberIfInavailable bool
 				if isSameId {
 					d.removeMemberIfInavailable(member.Key.NodeId, "", 0)
@@ -504,7 +504,7 @@ func (d *DiscoveryService) IsKnownMember(nodeId string) bool {
 	return d.AllKnownMembers.Has(nodeId)
 }
 
-func (d *DiscoveryService) isAvailableMember(knownMember *configdiscovery.Member, now time.Time) bool {
+func (d *DiscoveryService) IsAvailableMember(knownMember *configdiscovery.Member, now time.Time) bool {
 	memberHeartbeat := knownMember.Status.LastHeartbeatDate
 	var t time.Time
 	return memberHeartbeat != t && (now.UnixMilli()-memberHeartbeat.UnixMilli() < d.HeartbeatTimeoutMillis)
@@ -576,6 +576,13 @@ func (d *DiscoveryService) FindQualifiedMembersToBeLeader() []*configdiscovery.M
 
 func (d *DiscoveryService) isQualifiedToBeLeader(member *configdiscovery.Member) bool {
 	return member.NodeType == nodetype.SERVICE && member.IsLeaderEligible && member.Status.IsActive
+}
+
+// end region
+
+// region getters
+func (d *DiscoveryService) GetAllKnownMembers() cmap.ConcurrentMap[string, *configdiscovery.Member] {
+	return d.AllKnownMembers
 }
 
 // end region

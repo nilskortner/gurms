@@ -106,6 +106,40 @@ func (g *GurmsMongoOperations) UpdateOneWithSession(session *mongo.Session,
 	return source, nil
 }
 
+func (g *GurmsMongoOperations) UpdateMany(name string,
+	filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error) {
+	return g.UpdateManyWithSession(nil, name, filter, update)
+}
+
+func (g *GurmsMongoOperations) UpdateManyWithSession(session *mongo.Session,
+	name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error) {
+	collection := g.ctx.GetDatabaseCollection(name)
+
+	ctx := context.Background()
+	var source *mongo.UpdateResult
+	var err error
+	sessionFn := func(ctx context.Context) error {
+		source, err = collection.UpdateMany(ctx, filter, update)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if session == nil {
+		source, err = collection.UpdateMany(ctx, filter, update)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := mongo.WithSession(ctx, session, sessionFn)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return source, nil
+}
+
 // Delete
 func (g *GurmsMongoOperations) DeleteOneWithSession(session *mongo.Session, name string,
 	filter *option.Filter) (*mongo.DeleteResult, error) {

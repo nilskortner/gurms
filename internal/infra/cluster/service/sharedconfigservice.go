@@ -54,6 +54,7 @@ func (s *SharedConfigService) Insert(record any) error {
 	return s.mongoClient.Operations.Insert(record)
 }
 
+// TODO: Check
 func (s *SharedConfigService) updateOne(filter *option.Filter,
 	update *option.Update, entity string, upsert bool) (*mongo.UpdateResult, error) {
 
@@ -68,13 +69,18 @@ func (s *SharedConfigService) updateOne(filter *option.Filter,
 	return result, nil
 }
 
+func (s *SharedConfigService) UpdateMany(name string, filter *option.Filter,
+	update *option.Update) (*mongo.UpdateResult, error) {
+	return s.mongoClient.Operations.UpdateMany(name, filter, update)
+}
+
 func (s *SharedConfigService) Upsert(filter *option.Filter, update *option.Update, entity string) error {
 	_, err := s.updateOne(filter, update, entity, true)
 	return err
 }
 
-func (s *SharedConfigService) RemoveOne(name string, filter *option.Filter) (mongo.DeleteResult, error) {
-	return s.mongoClient.DeleteOne(name, filter)
+func (s *SharedConfigService) RemoveOne(name string, filter *option.Filter) (*mongo.DeleteResult, error) {
+	return s.mongoClient.Operations.DeleteOne(name, filter)
 }
 
 // region Indexation

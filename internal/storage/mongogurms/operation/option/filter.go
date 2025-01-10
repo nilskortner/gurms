@@ -15,3 +15,7 @@ func NewFilter() *Filter {
 func (f *Filter) Eq(key string, value any) {
 	f.Document[key] = value
 }
+
+func (f *Filter) In(key string, value any) {
+
+}

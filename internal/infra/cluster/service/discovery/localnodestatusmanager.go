@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"errors"
 	"fmt"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/collection"
@@ -10,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
@@ -33,12 +35,15 @@ type DiscoveryService interface {
 	FindQualifiedMembersToBeLeader() []*configdiscovery.Member
 	RegisterMember(*configdiscovery.Member) error
 	GetLeader() *configdiscovery.Leader
+	GetAllKnownMembers() cmap.ConcurrentMap[string, *configdiscovery.Member]
+	IsAvailableMember(knownMember *configdiscovery.Member, now time.Time) bool
 }
 
 type SharedConfigService interface {
 	Upsert(filter *option.Filter, update *option.Update, entity string) error
 	Insert(value any) (bool, error)
 	UpdateOne(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
+	UpdateMany(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
 	RemoveOne(name string, filter *option.Filter) (*mongo.DeleteResult, error)
 }
 
@@ -109,7 +114,7 @@ func (n *LocalNodeStatusManager) isLocalNodeLeader() bool {
 }
 
 func (n *LocalNodeStatusManager) StartHeartbeat() {
-	if n.heartbeatFuncActive == true {
+	if n.heartbeatFuncActive {
 		return
 	}
 	n.heartbeatFuncActive = true
@@ -180,7 +185,7 @@ func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) (bo
 	filter.Eq(configdiscovery.NODEID, n.LocalMember.Key.NodeId)
 	filter.Eq(configdiscovery.GENERATIONLEADER, leader.Generation)
 	update := option.NewUpdate()
-	update.Set(configdiscovery.ISHEALTHY, n.LocalMember.Status.IsHealthy)
+	update.Set(configdiscovery.RENEWDATELEADER, renewDate)
 
 	result, err := n.SharedConfigService.UpdateOne(configdiscovery.LEADERNAME, filter, update)
 	if err != nil {
@@ -196,5 +201,64 @@ func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) (bo
 }
 
 func (n *LocalNodeStatusManager) updateMemberStatus(lastHearthbeatDate time.Time) error {
-	knownMembers := n.DiscoveryService.
+	knownMembers := n.DiscoveryService.GetAllKnownMembers().Items()
+	knownMembersSize := len(knownMembers)
+	availableMemberNodeIds := make(map[string]struct{}, 0)
+	availableMembersSize := 0
+	for _, knownMember := range knownMembers {
+		isAvailable := n.DiscoveryService.IsAvailableMember(knownMember, lastHearthbeatDate)
+		if isAvailable {
+			availableMemberNodeIds[knownMember.Key.NodeId] = struct{}{}
+			availableMembersSize++
+		}
+	}
+	if availableMembersSize == 0 {
+		set := sliceToSet(n.DiscoveryService.GetAllKnownMembers().Keys())
+		return n.updateFollowersToUnavailable(set)
+	} else if knownMembersSize == availableMembersSize {
+		return n.updateFollowersToAvailable(availableMemberNodeIds)
+	} else {
+		keys := n.DiscoveryService.GetAllKnownMembers().Keys()
+		unavailableMemberIds := sliceToSet(keys)
+		for availableMemberNodeId := range availableMemberNodeIds {
+			delete(unavailableMemberIds, availableMemberNodeId)
+		}
+		err := n.updateFollowersToAvailable(availableMemberNodeIds)
+		if err != nil {
+			return errors.Join(err, n.updateFollowersToUnavailable(unavailableMemberIds))
+		}
+		return n.updateFollowersToUnavailable(unavailableMemberIds)
+	}
+}
+
+func (n *LocalNodeStatusManager) updateFollowersToAvailable(
+	availableMemberNodeIds map[string]struct{}) error {
+	return n.updateFollowers(availableMemberNodeIds, true)
+}
+
+func (n *LocalNodeStatusManager) updateFollowersToUnavailable(
+	unAvailableMemberNodeIds map[string]struct{}) error {
+	return n.updateFollowers(unAvailableMemberNodeIds, false)
+}
+
+func (n *LocalNodeStatusManager) updateFollowers(
+	memberNodeIds map[string]struct{}, available bool) error {
+
+	filter := option.NewFilter()
+	filter.In(configdiscovery.NODEID, memberNodeIds)
+	filter.Eq(configdiscovery.CLUSTERID, n.LocalMember.Key.ClusterId)
+
+	update := option.NewUpdate()
+	update.Set(configdiscovery.HASJOINEDCLUSTER, available)
+	_, err := n.SharedConfigService.UpdateMany(configdiscovery.MEMBERNAME, filter, update)
+	return err
+}
+
+// util
+func sliceToSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, key := range values {
+		set[key] = struct{}{}
+	}
+	return set
 }
