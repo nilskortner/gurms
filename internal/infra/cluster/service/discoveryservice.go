@@ -137,11 +137,12 @@ func NewDiscoveryService(
 
 	serviceAddressManager.AddOnNodeAddressInfoChangedListener(func(info *address.NodeAddressInfo) {
 
-		update := option.NewUpdate(info.MemberHost,
-			info.AdminApiAddress,
-			info.WsAddress,
-			info.TcpAddress,
-			info.UdpAddress)
+		update := option.NewUpdate()
+		update.Set(info.MemberHost)
+		//info.AdminApiAddress,
+		//info.WsAddress,
+		//info.TcpAddress,
+		//info.UdpAddress)
 		err := localNodeStatusManager.UpsertLocalNodeInfo(update)
 		if err != nil {
 			DISCOVERYSERVICELOGGER.ErrorWithMessage("caught an error while upserting the local node info", err)
@@ -235,10 +236,27 @@ func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 	})
 }
 
+// TODO: check flux error handling
 func (d *DiscoveryService) queryMembers() []*configdiscovery.Member {
 	clusterId := d.LocalNodeStatusManager.LocalMember.Key.ClusterId
-	filter := eq(Member.ID_CLUSTER_ID, clusterId)
-	return d.SharedConfigService.find(configdiscovery.MEMBERNAME, filter)
+	filter := option.NewFilter()
+	filter.Eq(configdiscovery.CLUSTERID, clusterId)
+	return d.SharedConfigService.Find(configdiscovery.MEMBERNAME, filter)
+}
+
+func (d *DiscoveryService) queryMember(nodeId string) (*configdiscovery.Member, error) {
+	clusterId := d.LocalNodeStatusManager.LocalMember.Key.ClusterId
+	filter := option.NewFilter()
+	filter.Eq(configdiscovery.CLUSTERID, clusterId)
+	filter.Eq(configdiscovery.NODEID, nodeId)
+	value, err := d.SharedConfigService.FindOne(configdiscovery.MEMBERNAME, filter)
+	member, ok := value.(*configdiscovery.Member)
+	if ok {
+		if member != nil {
+			return member, err
+		}
+	}
+	return nil, err
 }
 
 func (d *DiscoveryService) removeMemberIfInavailable(
@@ -247,14 +265,29 @@ func (d *DiscoveryService) removeMemberIfInavailable(
 	memberPort int) (bool, error) {
 
 	clusterId := d.LocalNodeStatusManager.LocalMember.Key.ClusterId
-	filter := option.Filter.newBuilder(3)
+	filter := option.NewFilter()
+	timestamp := time.Now().UnixMilli() - d.HeartbeatTimeoutMillis
+	filter.Lt(configdiscovery.LASTHEARTBEATDATE, timestamp)
 	if memberHost == "" {
-		filter = filter.eq(ID_CLUSTER_ID, clusterId).eq(ID_NODE_ID, nodeId)
+		filter.Eq(configdiscovery.CLUSTERID, clusterId)
+		filter.Eq(configdiscovery.NODEID, nodeId)
 	} else {
-		filter = filter.eq(a, memberHost).eq(a, memberPort)
+		filter.Eq(configdiscovery.MEMBERHOST, memberHost)
+		filter.Eq(configdiscovery.MEMBERPORT, memberPort)
 	}
-	return d.SharedConfigService.removeOne(configdiscovery.MEMBERNAME, filter)
-
+	result, err := d.SharedConfigService.RemoveOne(configdiscovery.MEMBERNAME, filter)
+	if err != nil {
+		if result.DeletedCount > 0 {
+			return true, nil
+		}
+	}
+	member, err := d.queryMember(nodeId)
+	if err != nil {
+		if d.IsAvailableMember(member, time.Now()) {
+			return false, nil
+		}
+	}
+	return d.removeMemberIfInavailable(nodeId, memberHost, memberPort)
 }
 
 func (d *DiscoveryService) listenLeaderChangeEvent() {
@@ -371,9 +404,11 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 			if operationType, ok := streamEvent["operationType"].(string); ok {
 				switch operationType {
 				case INSERT, REPLACE:
-					onMemberAddedOrReplaced(changedMember)
+					d.onMemberAddedOrReplaced(changedMember)
 				case UPDATE:
-					onMemberUpdated(nodeId, streamEvent[updatedescription])
+					if description := streamEvent["updateDescription"].(bson.M); ok {
+						d.onMemberUpdated(nodeId, description)
+					}
 				case DELETE:
 					deletedMember, exists := d.AllKnownMembers.Get(nodeId)
 					if exists {
@@ -387,7 +422,7 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 
 					if nodeId == d.LocalNodeStatusManager.LocalMember.Key.NodeId {
 						if !d.LocalNodeStatusManager.IsClosing {
-							d.LocalNodeStatusManager.registerLocalNodeAsMember(true)
+							d.LocalNodeStatusManager.RegisterLocalNodeAsMember(true)
 						}
 					}
 				case INVALIDATE:
@@ -408,6 +443,10 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 			d.ConnectionService.updateHasConnectedToAllMembers(d.AllKnownMembers)
 		}
 	}()
+}
+
+func (d *DiscoveryService) onMemberUpdated(nodeId string, updateDescription bson.M) {
+	a
 }
 
 func (d *DiscoveryService) onMemberAddedOrReplaced(newMember *configdiscovery.Member) {
@@ -583,6 +622,10 @@ func (d *DiscoveryService) isQualifiedToBeLeader(member *configdiscovery.Member)
 // region getters
 func (d *DiscoveryService) GetAllKnownMembers() cmap.ConcurrentMap[string, *configdiscovery.Member] {
 	return d.AllKnownMembers
+}
+
+func (d *DiscoveryService) GetLeader() *configdiscovery.Leader {
+	return d.Leader
 }
 
 // end region

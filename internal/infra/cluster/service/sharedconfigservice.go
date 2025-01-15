@@ -7,7 +7,7 @@ import (
 	"gurms/internal/infra/property/env/common/mongoproperties"
 	"gurms/internal/storage/mongogurms"
 	"gurms/internal/storage/mongogurms/operation/option"
-	"time"
+	"gurms/internal/supportpkgs/pair"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -50,23 +50,22 @@ func (s *SharedConfigService) Subscribe(name string, opts *options.ChangeStreamO
 	return s.mongoClient.Operations.Watch(name, opts)
 }
 
+func (s *SharedConfigService) Find(name string, filter *option.Filter) []pair.ValueErr {
+	return s.mongoClient.FindMany(name, filter)
+}
+
+func (s *SharedConfigService) FindOne(name string, filter *option.Filter) (any, error) {
+	return s.mongoClient.FindOne(name, filter)
+}
+
 func (s *SharedConfigService) Insert(record any) error {
 	return s.mongoClient.Operations.Insert(record)
 }
 
 // TODO: Check
-func (s *SharedConfigService) updateOne(filter *option.Filter,
-	update *option.Update, entity string, upsert bool) (*mongo.UpdateResult, error) {
-
-	collection := s.mongoClient.Ctx.Database.Collection(entity)
-	option := options.Update().SetUpsert(true)
-
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	result, err := collection.UpdateOne(ctx, filter.Document, update.Update, option)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+func (s *SharedConfigService) UpdateOne(name string, filter *option.Filter,
+	update *option.Update) (*mongo.UpdateResult, error) {
+	return s.mongoClient.Operations.UpdateOne(name, filter, update)
 }
 
 func (s *SharedConfigService) UpdateMany(name string, filter *option.Filter,
@@ -76,6 +75,15 @@ func (s *SharedConfigService) UpdateMany(name string, filter *option.Filter,
 
 func (s *SharedConfigService) Upsert(filter *option.Filter, update *option.Update, entity string) error {
 	_, err := s.updateOne(filter, update, entity, true)
+	// collection := s.mongoClient.Ctx.Database.Collection(name)
+	// option := options.Update().SetUpsert(true)
+
+	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	// result, err := collection.UpdateOne(ctx, filter.Document, update.Update, option)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return result, nil
 	return err
 }
 

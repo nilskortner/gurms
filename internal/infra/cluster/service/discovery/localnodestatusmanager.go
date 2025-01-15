@@ -41,7 +41,7 @@ type DiscoveryService interface {
 
 type SharedConfigService interface {
 	Upsert(filter *option.Filter, update *option.Update, entity string) error
-	Insert(value any) (bool, error)
+	Insert(value any) error
 	UpdateOne(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
 	UpdateMany(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
 	RemoveOne(name string, filter *option.Filter) (*mongo.DeleteResult, error)
@@ -92,7 +92,11 @@ func (n *LocalNodeStatusManager) TryBecomeFirstLeader() (bool, error) {
 	}
 	clusterId := n.LocalMember.Key.ClusterId
 	localLeader := configdiscovery.NewLeader(clusterId, n.LocalMember.Key.NodeId, time.Now(), 1)
-	return n.SharedConfigService.Insert(localLeader)
+	err := n.SharedConfigService.Insert(localLeader)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (n *LocalNodeStatusManager) UnregisterLocalMemberLeadership() (bool, error) {
@@ -192,7 +196,7 @@ func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) (bo
 		return false, err
 	}
 	if result.MatchedCount == 0 {
-		_, err = n.SharedConfigService.Insert(leader)
+		err = n.SharedConfigService.Insert(leader)
 		if err != nil {
 			return false, err
 		}
