@@ -2,6 +2,8 @@ package option
 
 import "go.mongodb.org/mongo-driver/v2/bson"
 
+// TODO: make document bson.D for ordering of filtering?
+
 type Filter struct {
 	Document bson.M
 }
