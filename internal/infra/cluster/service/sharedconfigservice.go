@@ -113,7 +113,7 @@ func ensureSharedClusterPropertiesIndexes(database *mongo.Database) {
 	collection := database.Collection(name)
 	_, err := collection.Indexes().CreateOne(ctx, sharedclusterproperties)
 	if err != nil {
-		SHAREDCONFIGLOGGER.FatalWithError("couldnt create index for sharedclusterproperties: ", err)
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create index for sharedclusterproperties", err)
 	}
 }
 
@@ -132,11 +132,11 @@ func ensureLeaderIndexes(database *mongo.Database) {
 	collection := database.Collection(name)
 	_, err := collection.Indexes().CreateOne(ctx, clusterId)
 	if err != nil {
-		SHAREDCONFIGLOGGER.FatalWithError("couldnt create clusterId index for leader: ", err)
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create clusterId index for leader", err)
 	}
 	_, err = collection.Indexes().CreateOne(ctx, renew)
 	if err != nil {
-		SHAREDCONFIGLOGGER.FatalWithError("couldnt create renew index for leader: ", err)
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create renew index for leader", err)
 	}
 }
 func ensureMemberIndexes(database *mongo.Database) {
@@ -150,7 +150,7 @@ func ensureMemberIndexes(database *mongo.Database) {
 	collection := database.Collection(name)
 	_, err := collection.Indexes().CreateOne(ctx, member)
 	if err != nil {
-		SHAREDCONFIGLOGGER.FatalWithError("couldnt create index for member: ", err)
+		SHAREDCONFIGLOGGER.FatalWithError("couldnt create index for member", err)
 	}
 }
 

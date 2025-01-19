@@ -136,13 +136,12 @@ func NewDiscoveryService(
 	discoveryService.LocalNodeStatusManager = localNodeStatusManager
 
 	serviceAddressManager.AddOnNodeAddressInfoChangedListener(func(info *address.NodeAddressInfo) {
-
 		update := option.NewUpdate()
-		update.Set(info.MemberHost)
-		//info.AdminApiAddress,
-		//info.WsAddress,
-		//info.TcpAddress,
-		//info.UdpAddress)
+		update.Set(configdiscovery.MEMBERHOST, info.MemberHost)
+		update.Set(configdiscovery.MEMBERHOST, info.AdminApiAddress)
+		update.Set(configdiscovery.MEMBERHOST, info.WsAddress)
+		update.Set(configdiscovery.MEMBERHOST, info.TcpAddress)
+		update.Set(configdiscovery.MEMBERHOST, info.UdpAddress)
 		err := localNodeStatusManager.UpsertLocalNodeInfo(update)
 		if err != nil {
 			DISCOVERYSERVICELOGGER.ErrorWithMessage("caught an error while upserting the local node info", err)
@@ -472,7 +471,74 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 }
 
 func (d *DiscoveryService) onMemberUpdated(nodeId string, updateDescription bson.M) {
-	a
+	memberToUpdate, _ := d.AllKnownMembers.Get(nodeId)
+	if memberToUpdate == nil {
+		err := fmt.Errorf("could not update the information of the unknown member: %s", nodeId)
+		DISCOVERYSERVICELOGGER.Error(err)
+		return
+	}
+
+	if entries, ok := updateDescription["updatedFields"].(bson.M); ok {
+		for fieldName, value := range entries {
+			switch fieldName {
+			case configdiscovery.LASTHEARTBEATDATE:
+				if heartbeat, ok := value.(time.Time); ok {
+					memberToUpdate.Status.LastHeartbeatDate = heartbeat
+				}
+			case configdiscovery.HASJOINEDCLUSTER:
+				if hasJoinedCluster, ok := value.(bool); ok {
+					memberToUpdate.Status.HasJoinedCluster = hasJoinedCluster
+				}
+			case configdiscovery.ISACTIVE:
+				if isActive, ok := value.(bool); ok {
+					memberToUpdate.Status.IsActive = isActive
+				}
+			case configdiscovery.ISHEALTHY:
+				if isHealthy, ok := value.(bool); ok {
+					memberToUpdate.Status.IsHealthy = isHealthy
+				}
+			case configdiscovery.ZONE:
+				if zone, ok := value.(string); ok {
+					memberToUpdate.Zone = zone
+				}
+			case configdiscovery.ISSEED:
+				if isSeed, ok := value.(bool); ok {
+					memberToUpdate.IsSeed = isSeed
+				}
+			case configdiscovery.ISLEADERELIGIBLE:
+				if isLeaderEligible, ok := value.(bool); ok {
+					memberToUpdate.IsLeaderEligible = isLeaderEligible
+				}
+			case configdiscovery.PRIORITY:
+				if priority, ok := value.(int); ok {
+					memberToUpdate.Priority = priority
+				}
+			case configdiscovery.MEMBERHOST:
+				if memberHost, ok := value.(string); ok {
+					memberToUpdate.MemberHost = memberHost
+				}
+			case configdiscovery.ADMINAPIADDRESS:
+				if adminApiAddress, ok := value.(string); ok {
+					memberToUpdate.AdminApiAddress = adminApiAddress
+				}
+			case configdiscovery.WSADDRESS:
+				if wsAddress, ok := value.(string); ok {
+					memberToUpdate.WsAddress = wsAddress
+				}
+			case configdiscovery.TCPADDRESS:
+				if tcpAddress, ok := value.(string); ok {
+					memberToUpdate.TcpAddress = tcpAddress
+				}
+			case configdiscovery.UDPADDRESS:
+				if udpAddress, ok := value.(string); ok {
+					memberToUpdate.UdpAddress = udpAddress
+				}
+			default:
+				str := fmt.Sprint("could not update the unknown field")
+				DISCOVERYSERVICELOGGER.Warn(str)
+			}
+		}
+	}
 }
 
 func (d *DiscoveryService) onMemberAddedOrReplaced(newMember *configdiscovery.Member) {
