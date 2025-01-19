@@ -8,10 +8,13 @@ import (
 )
 
 type MongoOperationsSupport interface {
-	FindById()
-	FindOne()
-	FindOneWithFilter()
-	FindOneWithQueryOptions()
+	FindOne(name string) *mongo.SingleResult
+	FindOneWithFilter(name string, filter *option.Filter) *mongo.SingleResult
+	FindOneWithOptions(name string, filter *option.Filter,
+		opts *options.FindOneOptionsBuilder) *mongo.SingleResult
+	FindMany(name string, filter *option.Filter) (*mongo.Cursor, error)
+	FindManyWithOptions(name string, filter *option.Filter,
+		options *options.FindOptionsBuilder) (*mongo.Cursor, error)
 
 	Insert(value any) error
 	Watch(name string, opts *options.ChangeStreamOptionsBuilder) (*mongo.ChangeStream, error)

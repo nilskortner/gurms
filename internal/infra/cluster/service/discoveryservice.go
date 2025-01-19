@@ -236,12 +236,39 @@ func (d *DiscoveryService) LazyInit(connectionService *ConnectionService) {
 	})
 }
 
-// TODO: check flux error handling
 func (d *DiscoveryService) queryMembers() []*configdiscovery.Member {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10*time.Second))
+	defer cancel()
+
 	clusterId := d.LocalNodeStatusManager.LocalMember.Key.ClusterId
 	filter := option.NewFilter()
 	filter.Eq(configdiscovery.CLUSTERID, clusterId)
-	return d.SharedConfigService.Find(configdiscovery.MEMBERNAME, filter)
+
+	cursor, err := d.SharedConfigService.Find(configdiscovery.MEMBERNAME, filter)
+	if err != nil {
+		DISCOVERYSERVICELOGGER.FatalWithError("error opening cursor: ", err)
+		return make([]*configdiscovery.Member, 0)
+	}
+	defer func() {
+		closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer closeCancel()
+
+		if err := cursor.Close(closeCtx); err != nil {
+			DISCOVERYSERVICELOGGER.FatalWithError("Error closing cursor: ", err)
+		}
+	}()
+
+	members := make([]*configdiscovery.Member, 0)
+	for cursor.Next(ctx) {
+		var member *configdiscovery.Member
+		err := cursor.Decode(member)
+		if err != nil {
+			DISCOVERYSERVICELOGGER.FatalWithError("error decoding member: ", err)
+		} else {
+			members = append(members, member)
+		}
+	}
+	return members
 }
 
 func (d *DiscoveryService) queryMember(nodeId string) (*configdiscovery.Member, error) {
@@ -249,14 +276,13 @@ func (d *DiscoveryService) queryMember(nodeId string) (*configdiscovery.Member, 
 	filter := option.NewFilter()
 	filter.Eq(configdiscovery.CLUSTERID, clusterId)
 	filter.Eq(configdiscovery.NODEID, nodeId)
-	value, err := d.SharedConfigService.FindOne(configdiscovery.MEMBERNAME, filter)
-	member, ok := value.(*configdiscovery.Member)
-	if ok {
-		if member != nil {
-			return member, err
-		}
+	value := d.SharedConfigService.FindOne(configdiscovery.MEMBERNAME, filter)
+	var member *configdiscovery.Member
+	err := value.Decode(member)
+	if err != nil {
+		return member, err
 	}
-	return nil, err
+	return member, nil
 }
 
 func (d *DiscoveryService) removeMemberIfInavailable(

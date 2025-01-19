@@ -40,7 +40,8 @@ type DiscoveryService interface {
 }
 
 type SharedConfigService interface {
-	Upsert(filter *option.Filter, update *option.Update, entity string) error
+	Upsert(name string, filter *option.Filter,
+		update *option.Update, value any) error
 	Insert(value any) error
 	UpdateOne(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
 	UpdateMany(name string, filter *option.Filter, update *option.Update) (*mongo.UpdateResult, error)
@@ -72,7 +73,7 @@ func (n *LocalNodeStatusManager) UpsertLocalNodeInfo(update *option.Update) erro
 	memberFilter.Eq("_id."+n.LocalMember.Key.ClusterId, n.LocalMember.Key.ClusterId)
 	memberFilter.Eq("_id."+nodeId, nodeId)
 
-	err := n.SharedConfigService.Upsert(memberFilter, update, n.LocalMember.Name)
+	err := n.SharedConfigService.Upsert(configdiscovery.MEMBERNAME, memberFilter, update, n.LocalMember)
 	if err == nil {
 		n.IsLocalNodeRegistered = true
 		return nil

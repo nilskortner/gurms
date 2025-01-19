@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property/env/common/mongoproperties"
 	"gurms/internal/storage/mongogurms"
 	"gurms/internal/storage/mongogurms/operation/option"
-	"gurms/internal/supportpkgs/pair"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -50,12 +50,12 @@ func (s *SharedConfigService) Subscribe(name string, opts *options.ChangeStreamO
 	return s.mongoClient.Operations.Watch(name, opts)
 }
 
-func (s *SharedConfigService) Find(name string, filter *option.Filter) []pair.ValueErr {
-	return s.mongoClient.FindMany(name, filter)
+func (s *SharedConfigService) Find(name string, filter *option.Filter) (*mongo.Cursor, error) {
+	return s.mongoClient.Operations.FindMany(name, filter)
 }
 
-func (s *SharedConfigService) FindOne(name string, filter *option.Filter) (any, error) {
-	return s.mongoClient.FindOne(name, filter)
+func (s *SharedConfigService) FindOne(name string, filter *option.Filter) *mongo.SingleResult {
+	return s.mongoClient.Operations.FindOneWithFilter(name, filter)
 }
 
 func (s *SharedConfigService) Insert(record any) error {
@@ -73,18 +73,27 @@ func (s *SharedConfigService) UpdateMany(name string, filter *option.Filter,
 	return s.mongoClient.Operations.UpdateMany(name, filter, update)
 }
 
-func (s *SharedConfigService) Upsert(filter *option.Filter, update *option.Update, entity string) error {
-	_, err := s.updateOne(filter, update, entity, true)
-	// collection := s.mongoClient.Ctx.Database.Collection(name)
-	// option := options.Update().SetUpsert(true)
+func (s *SharedConfigService) Upsert(name string, filter *option.Filter,
+	update *option.Update, value any) error {
 
-	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	// result, err := collection.UpdateOne(ctx, filter.Document, update.Update, option)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return result, nil
-	return err
+	result, err := s.UpdateOne(name, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		err := s.mongoClient.Operations.Insert(value)
+		if err != nil {
+			var errWE mongo.WriteException
+			if errors.As(err, &errWE) {
+				if errWE.HasErrorCode(11000) {
+					s.Upsert(name, filter, update, value)
+				}
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SharedConfigService) RemoveOne(name string, filter *option.Filter) (*mongo.DeleteResult, error) {

@@ -7,12 +7,13 @@ import (
 	"gurms/internal/storage/mongogurms/operation/option"
 	"time"
 
-	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var GURMSMONGOOPERATIONSLOGGER logger.Logger = factory.GetLogger("GurmsMongoOperationsLogger")
+
+var FILTER_ALL *option.Filter = option.NewFilter()
 
 // CRUD
 var ()
@@ -34,27 +35,22 @@ func NewGurmsMongoOperations(ctx MongoContextInjection) *GurmsMongoOperations {
 
 // Query
 
-func (g *GurmsMongoOperations) FindOne(name string) (any, error) {
-	collection := g.ctx.GetDatabaseCollection(name)
-	return g.Find(collection, FILTER_ALL, nil)
+func (g *GurmsMongoOperations) FindOne(name string) *mongo.SingleResult {
+	return g.FindOneWithOptions(name, FILTER_ALL, nil)
 }
 
-func (g *GurmsMongoOperations) FindOneWithFilter(name string, filter *option.Filter) (any, error) {
-	collection := g.ctx.GetDatabaseCollection(name)
-	return g.Find(collection, filter, nil)
+func (g *GurmsMongoOperations) FindOneWithFilter(name string,
+	filter *option.Filter) *mongo.SingleResult {
+	return g.FindOneWithOptions(name, filter, nil)
 }
 
 func (g *GurmsMongoOperations) FindOneWithOptions(name string, filter *option.Filter,
-	options *option.QueryOptions) (any, error) {
+	opts *options.FindOneOptionsBuilder) *mongo.SingleResult {
 
 	collection := g.ctx.GetDatabaseCollection(name)
-	if options == nil {
-		options = option.NewQueryOptions()
-		options.Limit(1)
-	} else {
-		options.Limit(1)
-	}
-	return g.Find(collection, filter, options)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10*time.Second))
+	defer cancel()
+	return collection.FindOne(ctx, filter.Document, opts)
 }
 
 func (g *GurmsMongoOperations) FindMany(name string, filter *option.Filter) (*mongo.Cursor, error) {
@@ -62,7 +58,7 @@ func (g *GurmsMongoOperations) FindMany(name string, filter *option.Filter) (*mo
 }
 
 func (g *GurmsMongoOperations) FindManyWithOptions(name string, filter *option.Filter,
-	options *option.QueryOptions) (*mongo.Cursor, error) {
+	options *options.FindOptionsBuilder) (*mongo.Cursor, error) {
 	collection := g.ctx.GetDatabaseCollection(name)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10*time.Second))
 	defer cancel()
@@ -220,23 +216,18 @@ func (g *GurmsMongoOperations) DeleteOne(name string, filter *option.Filter) (*m
 	return g.DeleteOneWithSession(nil, name, filter)
 }
 
-func (g *GurmsMongoOperations) Find(collection *mongo.Collection, filter *option.Filter,
-	options *option.QueryOptions) (*mongo.SingleResult, error) {
+// TODO: delete?
 
-	publisher := g.getPublisher(collection, filter.Document, options)
-	return publisher()
-}
+// func (g *GurmsMongoOperations) getPublisher(collection *mongo.Collection,
+// 	filter bson.M, queryOptions *option.QueryOptions) func() (*mongo.SingleResult, error) {
 
-func (g *GurmsMongoOperations) getPublisher(collection *mongo.Collection,
-	filter bson.M, queryOptions *option.QueryOptions) func() (*mongo.SingleResult, error) {
+// 	opts := []options.Lister[options.FindOneOptions]{queryOptions.Opts}
 
-	opts := []options.Lister[options.FindOneOptions]{queryOptions.Opts}
+// 	publisher := func() (*mongo.SingleResult, error) {
+// 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10*time.Second))
+// 		defer cancel()
+// 		return collection.FindOne(ctx, filter, opts...)
+// 	}
 
-	publisher := func() (*mongo.SingleResult, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(10*time.Second))
-		defer cancel()
-		return collection.FindOne(ctx, filter, opts...)
-	}
-
-	return publisher
-}
+// 	return publisher
+// }
