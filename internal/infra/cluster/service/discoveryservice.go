@@ -327,17 +327,17 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {
-				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				DISCOVERYSERVICELOGGER.ErrorWithMessage("Error decoding change stream event:", err)
 				continue
 			}
 			var changedLeader *configdiscovery.Leader
 			if err := stream.Decode(&changedLeader); err != nil {
-				DISCOVERYSERVICELOGGER.FatalWithError("Error decoding change stream event:", err)
+				DISCOVERYSERVICELOGGER.ErrorWithMessage("Error decoding change stream event:", err)
 				continue
 			}
 			fullDoc, fullDocumentFound := streamEvent["fullDocument"].(bson.M)
 			if !fullDocumentFound && changedLeader == nil {
-				DISCOVERYSERVICELOGGER.Fatal("clusterId can not be obtained")
+				DISCOVERYSERVICELOGGER.ErrorWithArgs("clusterId can not be obtained")
 				continue
 			}
 			var clusterId string

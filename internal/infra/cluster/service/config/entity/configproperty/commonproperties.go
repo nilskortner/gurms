@@ -1,10 +1,10 @@
-package property
+package configproperty
 
 import "gurms/internal/infra/property/env/common/cluster"
 
 type CommonProperties struct {
 	Cluster        *cluster.ClusterProperties `bson:",inline"`
-	FlightREcorder *FlightRecorderProperties  `bson:",inline"`
+	FlightRecorder *FlightRecorderProperties  `bson:",inline"`
 	HealthCheck    *HealthCheckProperties     `bson:",inline"`
 	Ip             *IpProperties              `bson:",inline"`
 	Location       *LocationProperties        `bson:",inline"`
