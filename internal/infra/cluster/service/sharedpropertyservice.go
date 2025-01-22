@@ -178,9 +178,9 @@ func (s *SharedPropertyService) findAndUpdatePropertiesByNodeType(
 		if properties.AiServingProperties != nil {
 			return properties, nil
 		}
-		//filter.Eq(, nil)
+		filter.Eq(configproperty.AISERVINGPROPERTIES, nil)
 		update := option.NewUpdate()
-		update.Set()
+		update.Set(configproperty.AISERVINGPROPERTIES, clusterProperties.AiServingProperties)
 		result, err := s.sharedConfigService.mongoClient.Operations.UpdateOne(
 			configproperty.SHAREDCLUSTERPROPERTIESNAME, filter, update)
 		if err != nil {
@@ -192,6 +192,63 @@ func (s *SharedPropertyService) findAndUpdatePropertiesByNodeType(
 			return nil, err
 		}
 		properties.SetAiServingProperties(clusterProperties.AiServingProperties)
+		return properties, nil
+	case nodetype.GATEWAY:
+		if properties.GatewayProperties != nil {
+			return properties, nil
+		}
+		filter.Eq(configproperty.GATEWAYPROPERTIES, nil)
+		update := option.NewUpdate()
+		update.Set(configproperty.GATEWAYPROPERTIES, clusterProperties.GatewayProperties)
+		result, err := s.sharedConfigService.mongoClient.Operations.UpdateOne(
+			configproperty.SHAREDCLUSTERPROPERTIESNAME, filter, update)
+		if err != nil {
+			err = fmt.Errorf("failed to update properties", err)
+			return nil, err
+		}
+		if result.MatchedCount == 0 {
+			err = fmt.Errorf("failed to update properties", err)
+			return nil, err
+		}
+		properties.SetGatewayProperties(clusterProperties.GatewayProperties)
+		return properties, nil
+	case nodetype.SERVICE:
+		if properties.ServiceProperties != nil {
+			return properties, nil
+		}
+		filter.Eq(configproperty.SERVICEPROPERTIES, nil)
+		update := option.NewUpdate()
+		update.Set(configproperty.SERVICEPROPERTIES, clusterProperties.ServiceProperties)
+		result, err := s.sharedConfigService.mongoClient.Operations.UpdateOne(
+			configproperty.SHAREDCLUSTERPROPERTIESNAME, filter, update)
+		if err != nil {
+			err = fmt.Errorf("failed to update properties", err)
+			return nil, err
+		}
+		if result.MatchedCount == 0 {
+			err = fmt.Errorf("failed to update properties", err)
+			return nil, err
+		}
+		properties.SetServiceProperties(clusterProperties.ServiceProperties)
+		return properties, nil
+	case nodetype.MOCK:
+		if properties.MockNodeProperties != nil {
+			return properties, nil
+		}
+		filter.Eq(configproperty.MOCKNODEPROPERTIES, nil)
+		update := option.NewUpdate()
+		update.Set(configproperty.MOCKNODEPROPERTIES, clusterProperties.MockNodeProperties)
+		result, err := s.sharedConfigService.mongoClient.Operations.UpdateOne(
+			configproperty.SHAREDCLUSTERPROPERTIESNAME, filter, update)
+		if err != nil {
+			err = fmt.Errorf("failed to update properties", err)
+			return nil, err
+		}
+		if result.MatchedCount == 0 {
+			err = fmt.Errorf("failed to update properties", err)
+			return nil, err
+		}
+		properties.SetMocknodeProperties(clusterProperties.MockNodeProperties)
 		return properties, nil
 	default:
 		err = fmt.Errorf("unknown nodetype")

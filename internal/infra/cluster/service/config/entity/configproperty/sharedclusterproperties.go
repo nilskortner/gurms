@@ -12,17 +12,21 @@ import (
 const SHAREDCLUSTERPROPERTIESNAME = "sharedclusterproperties"
 
 const (
-	ID string = "_id"
+	ID                  string = "_id"
+	AISERVINGPROPERTIES string = "aiServingProperties"
+	GATEWAYPROPERTIES   string = "gatewayProperties"
+	SERVICEPROPERTIES   string = "serviceProperties"
+	MOCKNODEPROPERTIES  string = "mockNodeProperties"
 )
 
 type SharedClusterProperties struct {
 	ClusterId           string                         `bson:"_id"`
 	SchemaVersion       int                            `bson:"schema_version"`
-	CommonProperties    *CommonProperties              `bson:",inline"`
-	AiServingProperties *aiserving.AiServingProperties `bson:",inline"`
-	GatewayProperties   *gateway.GatewayProperties     `bson:",inline"`
-	ServiceProperties   *service.ServiceProperties     `bson:",inline"`
-	MockNodeProperties  *mocknode.MockNodeProperties   `bson:",inline"`
+	CommonProperties    *CommonProperties              `bson:"commonProperties"`
+	AiServingProperties *aiserving.AiServingProperties `bson:"aiServingProperties"`
+	GatewayProperties   *gateway.GatewayProperties     `bson:"gatewayProperties"`
+	ServiceProperties   *service.ServiceProperties     `bson:"serviceProperties"`
+	MockNodeProperties  *mocknode.MockNodeProperties   `bson:"mockNodeProperties"`
 	LastUpdateTime      time.Time                      `bson:"last_updated_time"`
 	GurmsProperties     *property.GurmsProperties      // transient
 }
