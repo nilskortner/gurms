@@ -32,8 +32,18 @@ func NewIdService(discoveryService *DiscoveryService) *IdService {
 		idGenerators[i] = generator
 	}
 	idService.idGenerators = idGenerators
+
 	discoveryService.addOnMembersChangeListener(func() {
 		dataCenterId := idService.findNewDataCenterId()
+		localWorkerId := idService.findNewWorkerID()
+		if idService.previousLocalDataCenterId != dataCenterId ||
+			localWorkerId != idService.previousLocalWorkerId {
+			for _, idGenerator := range idService.idGenerators {
+				idGenerator.UpdateNodeInfo(dataCenterId, localWorkerId)
+			}
+			idService.previousLocalDataCenterId = dataCenterId
+			idService.previousLocalWorkerId = localWorkerId
+		}
 	})
 
 	return idService

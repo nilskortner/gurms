@@ -1,5 +1,3 @@
 package discovery
 
-type MembersChangeListener interface {
-	OnMembersChange()
-}
+type MembersChangeListener func()

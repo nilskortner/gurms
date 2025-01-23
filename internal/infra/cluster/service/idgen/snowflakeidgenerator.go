@@ -32,14 +32,14 @@ type SnowflakeIdGenerator struct {
 
 func NewSnowflakeIdGenerator(dataCenterId, workerId int) (*SnowflakeIdGenerator, error) {
 	generator := &SnowflakeIdGenerator{}
-	err := generator.updateNodeInfo(dataCenterId, workerId)
+	err := generator.UpdateNodeInfo(dataCenterId, workerId)
 	if err != nil {
 		return generator, err
 	}
 	return generator, nil
 }
 
-func (s *SnowflakeIdGenerator) updateNodeInfo(dataCenterId, workerId int) error {
+func (s *SnowflakeIdGenerator) UpdateNodeInfo(dataCenterId, workerId int) error {
 	if dataCenterId >= MAX_DATA_CENTER_ID {
 		reason := fmt.Sprintf("the data center ID must be in the range: [0, %d], but got: %d", MAX_DATA_CENTER_ID, dataCenterId)
 		return fmt.Errorf(reason)

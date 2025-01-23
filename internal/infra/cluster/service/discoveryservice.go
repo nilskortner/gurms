@@ -620,9 +620,13 @@ func (d *DiscoveryService) RegisterMember(member *configdiscovery.Member) error 
 
 // region event
 
+func (d *DiscoveryService) addOnMembersChangeListener(listener discovery.MembersChangeListener) {
+	d.MembersChangeListeners = append(d.MembersChangeListeners, listener)
+}
+
 func (d *DiscoveryService) notifyMembersChangeListeners() {
 	for _, listener := range d.MembersChangeListeners {
-		listener.OnMembersChange()
+		listener()
 	}
 }
 
