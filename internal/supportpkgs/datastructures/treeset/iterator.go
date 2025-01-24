@@ -1,10 +1,8 @@
 package treeset
 
-import "gurms/internal/infra/logging/core/appender/file/logfile"
-
-type Iterator struct {
-	tree     *Tree
-	node     *Node
+type Iterator[T comparable] struct {
+	tree     *Tree[T]
+	node     *Node[T]
 	position position
 }
 
@@ -14,11 +12,11 @@ const (
 	begin, between, end position = 0, 1, 2
 )
 
-func (tree *Tree) Iterator() *Iterator {
-	return &Iterator{tree: tree, node: nil, position: begin}
+func (tree *Tree[T]) Iterator() *Iterator[T] {
+	return &Iterator[T]{tree: tree, node: nil, position: begin}
 }
 
-func (iterator *Iterator) Next() bool {
+func (iterator *Iterator[T]) Next() bool {
 	if iterator.position == end {
 		goto end
 	}
@@ -55,6 +53,6 @@ between:
 	return true
 }
 
-func (iterator *Iterator) Key() logfile.LogFile {
+func (iterator *Iterator[T]) Key() T {
 	return iterator.node.Key
 }

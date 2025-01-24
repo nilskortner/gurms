@@ -43,10 +43,9 @@ type Node struct {
 }
 
 func NewNode(
-	version string,
 	nType nodetype.NodeType,
 	propertiesManager *property.GurmsPropertiesManager,
-	baseServiceAddresssManager *address.BaseServiceAddressManager,
+	baseServiceAddresssManager address.ServiceAddressManager,
 	healthCheckManager *healthcheck.HealthCheckManager,
 ) *Node {
 	nodeType = nType
@@ -58,6 +57,7 @@ func NewNode(
 	discoveryProperties := clusterProperties.Discovery
 	rpcProperties := clusterProperties.Rpc
 
+	version := gurmsContext.BuildProperties.Version
 	nodeVersion := nodetype.Parse(version)
 	NODELOGGER.InfoWithArgs("the local node version is: ", version)
 
@@ -93,10 +93,27 @@ func NewNode(
 		name:      name,
 	}
 
+	node.CodecService = service.NewCodecService()
 	node.ConnectionService = service.NewConnectionService(connectionProperties, node)
 	node.RpcService = service.NewRpcService(nodeType, rpcProperties)
 	node.SharedConfigService = service.NewSharedConfigService(sharedConfigProperties.Mongo)
-	node.DiscoveryService = service.NewDiscoveryService()
+	node.DiscoveryService = service.NewDiscoveryService(
+		clusterId, nodeId, zone, name, nodeType, nodeVersion,
+		nodeType == nodetype.SERVICE && nodeProperties.LeaderEligible,
+		nodeProperties.Priority, nodeProperties.ActiveByDefault,
+		healthCheckManager.isHealthy(),
+		node.ConnectionService,
+		discoveryProperties,
+		baseServiceAddresssManager,
+		node.SharedConfigService,
+	)
+	node.SharedPropertyService = service.NewSharedPropertyService(clusterId, nodeType, propertiesManager)
+	node.IdService = service.NewIdService(node.DiscoveryService)
+
+	// lazy init
+	node.ConnectionService.LazyInit(node.DiscoveryService, node.RpcService)
+	node.DiscoveryService.LazyInit(node.ConnectionService)
+	node.RpcService.LazyInit(node.CodecService, node.ConnectionService, node.DiscoveryService)
 
 	return node
 }
@@ -126,7 +143,8 @@ func InitNodeId(id string) string {
 }
 
 func (n *Node) Start() {
-	n.ConnectionService.LazyInitConnectionService()
+	n.SharedPropertyService.Start()
+	n.DiscoveryService.Start()
 }
 
 // for Node Injection

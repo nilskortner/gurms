@@ -598,6 +598,18 @@ func (d *DiscoveryService) updateActiveMembers(allKnownMembers map[string]*confi
 	d.ActiveSortedServiceMembers = tempActiveSortedServiceMembers
 }
 
+func (d *DiscoveryService) getLocalServiceMemberIndex() int {
+	indexOf := func(members []*configdiscovery.Member, member *configdiscovery.Member) int {
+		for index, value := range members {
+			if value == member {
+				return index
+			}
+		}
+		return -1
+	}
+	return indexOf(d.ActiveSortedServiceMembers, d.LocalNodeStatusManager.LocalMember)
+}
+
 // region registration
 
 func (d *DiscoveryService) RegisterMember(member *configdiscovery.Member) error {

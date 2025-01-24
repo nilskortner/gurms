@@ -53,7 +53,7 @@ func (s *SnowflakeIdGenerator) UpdateNodeInfo(dataCenterId, workerId int) error 
 	return nil
 }
 
-func (s *SnowflakeIdGenerator) nextIncreasingId() int64 {
+func (s *SnowflakeIdGenerator) NextIncreasingId() int64 {
 	// prepare each ID part
 	sequenceNum := s.sequenceNumber.Add(1) & SEQUENCE_NUMBER_MASK
 	updateAndGet := func() int64 {
@@ -75,7 +75,7 @@ func (s *SnowflakeIdGenerator) nextIncreasingId() int64 {
 		(s.workerId << WORKER_ID_SHIFT) | sequenceNum
 }
 
-func (s *SnowflakeIdGenerator) nextLargeGapId() int64 {
+func (s *SnowflakeIdGenerator) NextLargeGapId() int64 {
 	// prepare each ID part
 	sequenceNum := s.sequenceNumber.Add(1) & SEQUENCE_NUMBER_MASK
 	updateAndGet := func() int64 {

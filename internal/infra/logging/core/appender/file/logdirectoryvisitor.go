@@ -21,7 +21,7 @@ type LogDirectoryVisitor struct {
 	fileMiddle        string
 	maxFilesToKeep    int
 	deleteExceedFiles bool
-	files             *treeset.Tree
+	files             *treeset.Tree[logfile.LogFile]
 }
 
 func NewLogDirectoryVisitor(

@@ -69,7 +69,7 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties,
 	return service
 }
 
-func (c *ConnectionService) LazyInitConnectionService(discoveryService *DiscoveryService, rpcService *RpcService) {
+func (c *ConnectionService) LazyInit(discoveryService *DiscoveryService, rpcService *RpcService) {
 	c.discoveryService = discoveryService
 	c.rpcService = rpcService
 }
