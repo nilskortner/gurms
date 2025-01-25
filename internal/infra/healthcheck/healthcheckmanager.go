@@ -7,13 +7,16 @@ import (
 
 var HCMLOGGER logger.Logger = factory.GetLogger("HealthCheckManager")
 
+type Node interface {
+}
+
 type HealthCheckManager struct {
-	node                node.Node
+	node                Node
 	cpuHealthChecker    *CpuHealthChecker
 	memoryHealthChecker *MemoryHealthChecker
 	lastUpdateTimestamp int64
 }
 
-func NewHealthCheckManager(node node.Node, propertiesManager *GurmsPropertiesManager) {
+func NewHealthCheckManager(node Node, propertiesManager *GurmsPropertiesManager) {
 
 }

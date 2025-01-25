@@ -37,7 +37,7 @@ type GurmsProperties struct {
 	MockNode  *mocknode.MockNodeProperties
 }
 
-func InitGurmsProperties() *GurmsProperties {
+func NewGurmsProperties() *GurmsProperties {
 	return &GurmsProperties{
 		Cluster:        cluster.NewClusterProperties(),
 		FlightRecorder: common.NewFlightRecorderProperties(),
