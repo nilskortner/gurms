@@ -1,4 +1,4 @@
-package healthcheck
+package healthcheckproperty
 
 type HealthCheckProperties struct {
 	checkIntervalSeconds int

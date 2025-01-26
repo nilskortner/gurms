@@ -1,4 +1,4 @@
-package healthcheck
+package healthcheckproperty
 
 import "gurms/internal/infra/unit"
 

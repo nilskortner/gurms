@@ -180,6 +180,24 @@ func (n *LocalNodeStatusManager) UpdateInfo(member *configdiscovery.Member) {
 	}
 }
 
+func (n *LocalNodeStatusManager) UpdateHealthStatus(isHealthy bool) {
+	if n.LocalMember.Status.IsHealthy ==
+		isHealthy || !n.IsHealthStatusUpdating.CompareAndSwap(false, true) {
+		return
+	}
+	filter := option.NewFilter()
+	filter.Eq(configdiscovery.NODEID, n.LocalMember.Key.NodeId)
+	filter.Eq(configdiscovery.CLUSTERID, n.LocalMember.Key.ClusterId)
+	update := option.NewUpdate()
+	update.Set(configdiscovery.ISHEALTHY, isHealthy)
+	_, err := n.SharedConfigService.UpdateOne(configdiscovery.MEMBERNAME, filter, update)
+	n.IsHealthStatusUpdating.Store(false)
+	if err != nil {
+		LOCALNODESTATUSMANAGERLOGGER.ErrorWithMessage(
+			"caught an error while updating the health status of the local node", err)
+	}
+}
+
 func (n *LocalNodeStatusManager) renewLocalNodeAsLeader(renewDate time.Time) (bool, error) {
 	leader := n.DiscoveryService.GetLeader()
 	if leader == nil {

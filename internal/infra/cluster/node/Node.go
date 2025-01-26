@@ -156,3 +156,7 @@ func (n *Node) OpeningHandshakeRequestCall(connection *connectionservice.GurmsCo
 func (n *Node) KeepAliveRequestCall() {
 	n.ConnectionService.Keepalive(nodeId)
 }
+
+func (n *Node) UpdateHealthStatus(isHealthy bool) {
+	n.DiscoveryService.LocalNodeStatusManager.UpdateHealthStatus(isHealthy)
+}
