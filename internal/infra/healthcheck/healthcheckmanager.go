@@ -27,7 +27,7 @@ func NewHealthCheckManager(node Node,
 	properties := propertiesManager.LocalGurmsProperties.HealthCheck
 	healthCheckManager := &HealthCheckManager{
 		node:                node,
-		cpuHealthChecker:    NewCpuHealtChecker(properties.Cpu),
+		cpuHealthChecker:    NewCpuHealthChecker(properties.Cpu),
 		memoryHealthChecker: NewMemoryHealthChecker(properties.Memory),
 	}
 	healthCheckManager.startHealthCheck(properties.CheckIntervalSeconds)
