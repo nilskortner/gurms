@@ -36,11 +36,19 @@ func NewCpuHealthChecker(properties *healthcheckproperty.CpuHealthCheckPropertie
 		manager.isCpuHealthy = true
 
 	}
-	manager.updateHealthStatus()
+	manager.UpdateHealthStatus()
 	return manager
 }
 
-func (c *CpuHealthChecker) updateHealthStatus() {
+func (c *CpuHealthChecker) IsHealthy() bool {
+	return c.isCpuHealthy
+}
+
+func (c *CpuHealthChecker) GetUnhealthyReason() string {
+	return c.unhealthyReason
+}
+
+func (c *CpuHealthChecker) UpdateHealthStatus() {
 	if !c.isCpuHealthCheckAvailable {
 		return
 	}

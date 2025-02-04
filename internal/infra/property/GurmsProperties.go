@@ -4,7 +4,7 @@ import (
 	"gurms/internal/infra/property/env/aiserving"
 	"gurms/internal/infra/property/env/common"
 	"gurms/internal/infra/property/env/common/cluster"
-	"gurms/internal/infra/property/env/common/healthcheck"
+	"gurms/internal/infra/property/env/common/healthcheckproperty"
 	"gurms/internal/infra/property/env/common/location"
 	"gurms/internal/infra/property/env/common/logging"
 	"gurms/internal/infra/property/env/common/plugin"
@@ -22,7 +22,7 @@ type GurmsProperties struct {
 	// Common
 	Cluster        *cluster.ClusterProperties
 	FlightRecorder *common.FlightRecorderProperties
-	HealthCheck    *healthcheck.HealthCheckProperties
+	HealthCheck    *healthcheckproperty.HealthCheckProperties
 	Ip             *common.IpProperties
 	Location       *location.LocationProperties
 	Logging        *logging.LoggingProperties
@@ -41,7 +41,7 @@ func NewGurmsProperties() *GurmsProperties {
 	return &GurmsProperties{
 		Cluster:        cluster.NewClusterProperties(),
 		FlightRecorder: common.NewFlightRecorderProperties(),
-		HealthCheck:    healthcheck.NewHealthCheckProperties(),
+		HealthCheck:    healthcheckproperty.NewHealthCheckProperties(),
 		Ip:             common.NewIpProperties(),
 		Location:       location.NewLocationProperties(),
 		Logging:        logging.NewLoggingProperties(),

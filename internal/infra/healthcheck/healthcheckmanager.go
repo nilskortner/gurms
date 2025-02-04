@@ -12,6 +12,7 @@ var HEALTHCHECKMANAGERLOGGER logger.Logger = factory.GetLogger("HealthCheckManag
 
 type Node interface {
 	UpdateHealthStatus(bool)
+	IsActive() bool
 }
 
 type HealthCheckManager struct {
@@ -19,6 +20,7 @@ type HealthCheckManager struct {
 	cpuHealthChecker    *CpuHealthChecker
 	memoryHealthChecker *MemoryHealthChecker
 	lastUpdateTimestamp int64
+	stopChan            chan struct{}
 }
 
 func NewHealthCheckManager(node Node,
@@ -27,6 +29,7 @@ func NewHealthCheckManager(node Node,
 	properties := propertiesManager.LocalGurmsProperties.HealthCheck
 	healthCheckManager := &HealthCheckManager{
 		node:                node,
+		stopChan:            make(chan struct{}),
 		cpuHealthChecker:    NewCpuHealthChecker(properties.Cpu),
 		memoryHealthChecker: NewMemoryHealthChecker(properties.Memory),
 	}
@@ -34,7 +37,7 @@ func NewHealthCheckManager(node Node,
 	return healthCheckManager
 }
 
-func (h *HealthCheckManager) isHealthy() bool {
+func (h *HealthCheckManager) IsHealthy() bool {
 	return h.cpuHealthChecker.isCpuHealthy && h.memoryHealthChecker.isMemoryHealthy
 }
 
@@ -44,19 +47,27 @@ func (h *HealthCheckManager) startHealthCheck(intervalSeconds int) {
 	ticker := time.NewTicker(interval)
 	go func() {
 		for {
-			h.cpuHealthChecker.updateHealthStatus()
-			h.memoryHealthChecker.updateHealthStatus()
-			h.node.UpdateHealthStatus(h.isHealthy())
-
-			// TODO: correct schedueling
-			now := time.Now()
-			previousUpdateTimeStamp := h.lastUpdateTimestamp + intervalMillis
-			h.lastUpdateTimestamp = now.UnixMilli()
-			if previousUpdateTimeStamp >= now.UnixMilli() {
-				HEALTHCHECKMANAGERLOGGER.WarnWithArgs(fmt.Sprintf(
-					"the system time goes backwards. the time drift is %d millis",
-					previousUpdateTimeStamp-now.UnixMilli()))
+			select {
+			case <-h.stopChan:
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				h.cpuHealthChecker.UpdateHealthStatus()
+				h.memoryHealthChecker.UpdateHealthStatus()
+				h.node.UpdateHealthStatus(h.IsHealthy())
+				now := time.Now()
+				previousUpdateTimeStamp := h.lastUpdateTimestamp + intervalMillis
+				h.lastUpdateTimestamp = now.UnixMilli()
+				if previousUpdateTimeStamp >= now.UnixMilli() {
+					HEALTHCHECKMANAGERLOGGER.WarnWithArgs(fmt.Sprintf(
+						"the system time goes backwards. the time drift is %d millis",
+						previousUpdateTimeStamp-now.UnixMilli()))
+				}
 			}
 		}
 	}()
+}
+
+func (h *HealthCheckManager) StopHealthCheckRoutine() {
+	h.stopChan <- struct{}{}
 }

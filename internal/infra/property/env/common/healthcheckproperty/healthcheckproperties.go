@@ -1,15 +1,15 @@
 package healthcheckproperty
 
 type HealthCheckProperties struct {
-	checkIntervalSeconds int
-	cpu                  *CpuHealthCheckProperties
-	memory               *MemoryHealthCheckProperties
+	CheckIntervalSeconds int
+	Cpu                  *CpuHealthCheckProperties
+	Memory               *MemoryHealthCheckProperties
 }
 
 func NewHealthCheckProperties() *HealthCheckProperties {
 	return &HealthCheckProperties{
-		checkIntervalSeconds: 3,
-		cpu:                  NewCpuHealthCheckProperties(),
-		memory:               NewMemoryHealthCheckProperties(),
+		CheckIntervalSeconds: 3,
+		Cpu:                  NewCpuHealthCheckProperties(),
+		Memory:               NewMemoryHealthCheckProperties(),
 	}
 }
