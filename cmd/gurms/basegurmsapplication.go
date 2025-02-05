@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"gurms/internal/infra/application"
 	"gurms/internal/infra/cluster"
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/cluster/node/nodetype"
@@ -21,7 +22,8 @@ import (
 )
 
 type BaseApplication struct {
-	nodeType nodetype.NodeType
+	nodeType        nodetype.NodeType
+	shutDownManager *application.ShutDownManager
 }
 
 var logger zerolog.Logger
@@ -61,12 +63,13 @@ func (app *BaseApplication) setDefaults() {
 	// Set other system properties as needed
 }
 
-// setupLogging initializes the logger
+// setupLogging initializes the internal logger
 func (app *BaseApplication) setupLogging() {
 	logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 }
 
 func (app *BaseApplication) initEnv() {
+	app.shutDownManager = application.NewShutDownManager()
 	properties = property.InitGurmsProperties()
 
 	var nodeId string = node.InitNodeId(viper.GetString(constants.GURMS_CLUSTER_NODE_ID))
@@ -83,11 +86,7 @@ func (app *BaseApplication) initEnv() {
 // Run starts the application
 func (app *BaseApplication) Run() {
 	log.Println("Running BaseApplication")
-
 	defer app.handlePanic()
-
-	panic("test")
-
 }
 
 // handleShutdown ensures graceful shutdown
@@ -100,6 +99,9 @@ func (app *BaseApplication) handlePanic() {
 			Interface("panic", r).
 			Str("stack", string(stack)).
 			Msg("Recovered from panic")
+		if factory.IsInitialized() {
+			factory.WaitClose(60 * 1000)
+		}
 		logger.Info().Msg("Application shutting down gracefully")
 		os.Exit(1)
 	}

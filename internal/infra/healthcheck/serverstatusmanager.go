@@ -1,25 +1,27 @@
 package healthcheck
 
+import "context"
+
 type ServerStatusManager struct {
-	//context            *GurmsApplicationContext
+	ctx                context.Context
 	node               Node
 	healthCheckManager *HealthCheckManager
 }
 
 // TODO:
 func NewServerStatusManager(
-	//context *GurmsApplicationContext,
+	ctx context.Context,
 	node Node,
 	healthCheckManager *HealthCheckManager) *ServerStatusManager {
 	return &ServerStatusManager{
-		context:            context,
+		ctx:                ctx,
 		node:               node,
 		healthCheckManager: healthCheckManager,
 	}
 }
 
 func (s *ServerStatusManager) getServiceAvailability() ServiceAvailability {
-	if context.isClosing() {
+	if s.ctx.Done() {
 		return SHUTTING_DOWN
 	}
 	if !s.node.IsActive() {

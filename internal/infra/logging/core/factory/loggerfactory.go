@@ -145,3 +145,7 @@ func getLogger(options *logger.LoggerOptions) logger.Logger {
 	}
 	return logger.NewAsyncLogger(loggerName, options.IsShouldParse(), appenders, loggerlayout, Queue)
 }
+
+func IsInitialized() bool {
+	return initialized
+}
