@@ -1,6 +1,7 @@
 package healthcheck
 
 import (
+	"context"
 	"fmt"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -23,7 +24,14 @@ type HealthCheckManager struct {
 	stopChan            chan struct{}
 }
 
-func NewHealthCheckManager(node Node,
+type ShutDown interface {
+	AddClosingContext(ctxClose context.CancelFunc)
+	AddShutdownChannel(shutdown chan struct{})
+}
+
+func NewHealthCheckManager(
+	shutdown ShutDown,
+	node Node,
 	propertiesManager *property.GurmsPropertiesManager) *HealthCheckManager {
 
 	properties := propertiesManager.LocalGurmsProperties.HealthCheck
@@ -33,6 +41,7 @@ func NewHealthCheckManager(node Node,
 		cpuHealthChecker:    NewCpuHealthChecker(properties.Cpu),
 		memoryHealthChecker: NewMemoryHealthChecker(properties.Memory),
 	}
+	shutdown.AddShutdownChannel(healthCheckManager.stopChan)
 	healthCheckManager.startHealthCheck(properties.CheckIntervalSeconds)
 	return healthCheckManager
 }

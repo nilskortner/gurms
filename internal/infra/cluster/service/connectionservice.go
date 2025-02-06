@@ -43,11 +43,10 @@ type ConnectionService struct {
 	serverProperties                  *connection.ConnectionServerProperties
 	server                            *connectionservice.ConnectionServer
 
-	mu              sync.Mutex
-	cancelKeepAlive context.CancelFunc
+	mu sync.Mutex
 }
 
-func NewConnectionService(connectionProperties *connection.ConnectionProperties, node injection.Node) *ConnectionService {
+func NewConnectionService(shutdown injection.ShutDown, connectionProperties *connection.ConnectionProperties, node injection.Node) *ConnectionService {
 	clientProperties := connectionProperties.Client
 
 	service := &ConnectionService{
@@ -60,8 +59,8 @@ func NewConnectionService(connectionProperties *connection.ConnectionProperties,
 		reconnectInterval:                 int64(clientProperties.ReconnectIntervalSeconds),
 	}
 
-	var ctx context.Context
-	ctx, service.cancelKeepAlive = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	shutdown.AddClosingContext(cancel)
 	service.startSendKeepAliveToConnectionsForeverRoutine(ctx)
 
 	service.server = service.setupServer()
@@ -222,7 +221,13 @@ func (c *ConnectionService) startSendKeepAliveToConnectionsForeverRoutine(ctx co
 }
 
 func (c *ConnectionService) Keepalive(nodeId string) {
-	// TODO
+	connection, ok := c.nodeIdToConnection.Get(nodeId)
+	if !ok {
+		CONNECTIONLOGGER.Fatal(fmt.Sprintf(
+			"received a keepalive request from a non connected node: %s", nodeId))
+		return
+	}
+	connection.LastKeepaliveTimestamp = time.Now().UnixMilli()
 }
 
 func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservice.GurmsConnection) {
@@ -255,7 +260,10 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 // handshake
 
 func (c *ConnectionService) HandleHandshakeRequest(connection *connectionservice.GurmsConnection, nodeId string) byte {
-	//TODO
+	member := c.discoveryService.GetMember(nodeId)
+	if member == nil {
+		return request.
+	}
 	return 0
 }
 
@@ -265,7 +273,7 @@ func disconnectConnection(connection *connectionservice.GurmsConnection) {
 	if err != nil {
 		CONNECTIONLOGGER.ErrorWithMessage("error closing connection "+connection.NodeId, err)
 	}
-	// TODO retry here because dispose() is missing?
+	// TODO: retry here because dispose() is missing?
 	connection.StopDecoderChan <- struct{}{}
 	connection.StopListenerChan <- struct{}{}
 	connection.IsClosed.Store(true)

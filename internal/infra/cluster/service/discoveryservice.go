@@ -8,6 +8,7 @@ import (
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/discovery"
+	"gurms/internal/infra/cluster/service/injection"
 	"gurms/internal/infra/collection"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -39,6 +40,8 @@ const (
 var MEMBER_PRIORITY_COMPARATOR func(*configdiscovery.Member, *configdiscovery.Member) int = compareMemberPriority
 
 type DiscoveryService struct {
+	shutdown injection.ShutDown
+
 	notifyMembersChangeFuture *Future
 
 	DiscoveryProperties *cluster.DiscoveryProperties
@@ -65,13 +68,11 @@ type DiscoveryService struct {
 
 	HeartbeatTimeoutMillis int64
 
-	cancelLeaderChangeRoutine context.CancelFunc
-	cancelMemberChangeRoutine context.CancelFunc
-
 	mu sync.Mutex
 }
 
 func NewDiscoveryService(
+	shutdown injection.ShutDown,
 	clusterId string,
 	nodeId string,
 	zone string,
@@ -323,7 +324,7 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection:", err)
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		d.cancelLeaderChangeRoutine = cancel
+		d.shutdown.AddClosingContext(cancel)
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {
@@ -387,6 +388,7 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 				}
 			}
 		}
+		stream.Close(context.Background())
 	}()
 }
 
@@ -398,7 +400,7 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection member:", err)
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		d.cancelMemberChangeRoutine = cancel
+		d.shutdown.AddClosingContext(cancel)
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {
@@ -467,6 +469,7 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 			d.updateActiveMembers(d.AllKnownMembers.Items())
 			d.ConnectionService.updateHasConnectedToAllMembers(d.AllKnownMembers)
 		}
+		stream.Close(context.Background())
 	}()
 }
 

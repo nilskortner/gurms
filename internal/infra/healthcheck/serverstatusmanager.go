@@ -8,11 +8,12 @@ type ServerStatusManager struct {
 	healthCheckManager *HealthCheckManager
 }
 
-// TODO:
 func NewServerStatusManager(
-	ctx context.Context,
+	shutdown ShutDown,
 	node Node,
 	healthCheckManager *HealthCheckManager) *ServerStatusManager {
+	ctx, cancel := context.WithCancel(context.Background())
+	shutdown.AddClosingContext(cancel)
 	return &ServerStatusManager{
 		ctx:                ctx,
 		node:               node,
@@ -21,25 +22,27 @@ func NewServerStatusManager(
 }
 
 func (s *ServerStatusManager) getServiceAvailability() ServiceAvailability {
-	if s.ctx.Done() {
+	select {
+	case <-s.ctx.Done():
 		return SHUTTING_DOWN
-	}
-	if !s.node.IsActive() {
-		return INACTIVE
-	}
-	unhealthyReason := s.healthCheckManager.cpuHealthChecker.GetUnhealthyReason()
-	if unhealthyReason != "" {
-		return ServiceAvailability{
-			status: STATUS_HIGH_CPU_USAGE,
-			reason: unhealthyReason,
+	default:
+		if !s.node.IsActive() {
+			return INACTIVE
 		}
-	}
-	unhealthyReason = s.healthCheckManager.memoryHealthChecker.GetUnhealthyReason()
-	if unhealthyReason != "" {
-		return ServiceAvailability{
-			status: STATUS_INSUFFICIENT_MEMORY,
-			reason: unhealthyReason,
+		unhealthyReason := s.healthCheckManager.cpuHealthChecker.GetUnhealthyReason()
+		if unhealthyReason != "" {
+			return ServiceAvailability{
+				status: STATUS_HIGH_CPU_USAGE,
+				reason: unhealthyReason,
+			}
 		}
+		unhealthyReason = s.healthCheckManager.memoryHealthChecker.GetUnhealthyReason()
+		if unhealthyReason != "" {
+			return ServiceAvailability{
+				status: STATUS_INSUFFICIENT_MEMORY,
+				reason: unhealthyReason,
+			}
+		}
+		return AVAILABLE
 	}
-	return AVAILABLE
 }

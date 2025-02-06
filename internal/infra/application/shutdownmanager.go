@@ -9,7 +9,7 @@ import (
 var SHUTDOWNMANAGERLOGGER logger.Logger = factory.GetLogger("ShutDownManager")
 
 type ShutDownManager struct {
-	isClosing            []*bool
+	isClosing            []func()
 	closeRoutineChannels []chan struct{}
 }
 
@@ -21,7 +21,7 @@ func (s *ShutDownManager) ShutdownApp() {
 func (s *ShutDownManager) StartCloseRoutines() {
 	SHUTDOWNMANAGERLOGGER.Warn("started shutting down ALL go routines")
 	for _, setClose := range s.isClosing {
-		*setClose = true
+		setClose()
 	}
 	time.Sleep(5 * time.Second)
 	SHUTDOWNMANAGERLOGGER.Warn("shutting down ALL go routines")

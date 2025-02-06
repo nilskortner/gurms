@@ -4,12 +4,12 @@ type RpcResponseWrap interface {
 	GetRpcError() error
 }
 
-type RpcResponse[T comparable] struct {
+type RpcResponse struct {
 	RequestId int64
-	Result    T
+	Result    any
 	RpcError  error
 }
 
-func (r *RpcResponse[T]) GetRpcError() error {
+func (r *RpcResponse) GetRpcError() error {
 	return r.RpcError
 }

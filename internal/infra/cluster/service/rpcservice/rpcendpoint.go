@@ -1,7 +1,6 @@
 package rpcservice
 
 import (
-	"encoding/gob"
 	"fmt"
 	"gurms/internal/infra/cluster/service/connectionservice"
 	"gurms/internal/infra/cluster/service/rpcservice/channel"
@@ -23,7 +22,7 @@ const (
 )
 
 var initSize int = int(EXPECTED_MAX_QPS * EXPECTED_AVERAGE_RTT * (INITAL_CAPACITY_PERCENTAGE / 100.0))
-var pendingRequestMap *nonblockingmap.Map[int64, struct{}] = nonblockingmap.NewSized[int64, struct{}](uintptr(initSize))
+var pendingRequestMap *nonblockingmap.Map[int64, chan any] = nonblockingmap.NewSized[int64, chan any](uintptr(initSize))
 
 type RpcEndpoint struct {
 	NodeId     string
@@ -37,18 +36,16 @@ func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection
 	}
 }
 
-// TODO: check this function and the response handling
-func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T]) (T, error) {
+func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T]) (chan any, error) {
 	conn := endpoint.Connection.Connection
 	if conn == nil {
-		var zero T
 		err := fmt.Errorf("connection already closed")
-		return zero, err
+		return nil, err
 	}
-	var response T
+	sink := make(chan any)
 	for {
 		requestId := generateId()
-		_, ok := pendingRequestMap.GetOrInsert(requestId, struct{}{})
+		_, ok := pendingRequestMap.GetOrInsert(requestId, sink)
 		if ok {
 			continue
 		}
@@ -58,22 +55,18 @@ func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T])
 		if err != nil {
 			buffer = nil
 			var zero T
-			return zero, resolveRequest(requestId, response, err)
+			resolveRequest(requestId, zero, err)
+			return nil, err
 		}
 		_, err = conn.Write(buffer.Bytes())
 		if err != nil {
 			var zero T
-			return zero, resolveRequest(requestId, response, err)
-		}
-		decoder := gob.NewDecoder(conn)
-		err = decoder.Decode(&response)
-		if err != nil {
-			var zero T
-			return zero, fmt.Errorf("error decoding response")
+			resolveRequest(requestId, zero, err)
+			return nil, err
 		}
 		break
 	}
-	return response, nil
+	return sink, nil
 }
 
 func sendRequest() {}
@@ -96,35 +89,28 @@ func generateId() int64 {
 func UnwrapResponse(wrap dto.RpcResponseWrap) {
 	// Type switch
 	switch value := wrap.(type) {
-	case *dto.RpcResponse[byte]:
-		HandleResponse[byte](value)
+	case *dto.RpcResponse:
+		HandleResponse(value)
 	default:
 		RPCENDPOINTLOGGER.ErrorWithArgs("Couldnt resolve Instantiation of Response[Type?]: ", wrap)
 	}
 }
 
-func HandleResponse[T comparable](response *dto.RpcResponse[T]) {
+func HandleResponse(response *dto.RpcResponse) {
 	resolveRequest(response.RequestId, response.Result, response.RpcError)
 }
 
-func resolveRequest[T comparable](requestId int64, response T, err error) error {
-	// TODO: handle value emit
-	_, ok := pendingRequestMap.Get(requestId)
+func resolveRequest(requestId int64, response any, err error) {
+	sink, ok := pendingRequestMap.Get(requestId)
 	if !ok {
-		message := fmt.Sprint("Could not find a pending request with the ID %s",
-			requestId)
+		message := fmt.Sprint("Could not find a pending request with the ID %s for the response: %s",
+			requestId, response)
 		RPCENDPOINTLOGGER.Warn(message)
-		return nil
+		return
 	}
-	ok = pendingRequestMap.Del(requestId)
-	if !ok {
-		message := fmt.Sprint("Could not delete request with the ID %s",
-			requestId)
-		RPCENDPOINTLOGGER.Warn(message)
-		return nil
+	if err == nil {
+		sink <- response
+	} else {
+		sink <- err
 	}
-	if err != nil {
-		return err
-	}
-	return nil
 }
