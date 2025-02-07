@@ -147,7 +147,7 @@ func (n *Node) Start() {
 	n.DiscoveryService.Start()
 }
 
-// for Node Injection
+// region for Node Injection
 
 func (n *Node) OpeningHandshakeRequestCall(connection *connectionservice.GurmsConnection) any {
 	return n.ConnectionService.HandleHandshakeRequest(connection, nodeId)

@@ -11,10 +11,20 @@ type RpcFrameEncoder struct{}
 
 var INSTANCE *RpcFrameEncoder = &RpcFrameEncoder{}
 
-func EncodeRequest[T comparable](request dto.RpcRequest[T]) (*bytes.Buffer, error) {
+func EncodeRequest(request dto.RpcRequest) (*bytes.Buffer, error) {
 	buffer := bytes.NewBuffer(make([]byte, 0))
 	enc := gob.NewEncoder(buffer)
 	err := enc.Encode(request)
+	if err != nil {
+		return nil, err
+	}
+	return buffer, nil
+}
+
+func EncodeResponse(response *dto.RpcResponse) (*bytes.Buffer, error) {
+	buffer := bytes.NewBuffer(make([]byte, 0))
+	enc := gob.NewEncoder(buffer)
+	err := enc.Encode(response)
 	if err != nil {
 		return nil, err
 	}

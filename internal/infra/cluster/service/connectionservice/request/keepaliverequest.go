@@ -22,14 +22,12 @@ func NewKeepAliveRequest[T comparable](nodeId string) *KeepaliveRequest[T] {
 func (k *KeepaliveRequest[T]) IsAsync() bool {
 	return false
 }
-func (k *KeepaliveRequest[T]) CallAsync() T {
-	var zero T
-	return zero
+func (k *KeepaliveRequest[T]) CallAsync() any {
+	return nil
 }
-func (k *KeepaliveRequest[T]) Call() T {
+func (k *KeepaliveRequest[T]) Call() any {
 	k.node.KeepAliveRequestCall()
-	var zero T
-	return zero
+	return nil
 }
 func (k *KeepaliveRequest[T]) NodeTypeToRequest() dto.NodeTypeToHandleRpc {
 	return dto.BOTH

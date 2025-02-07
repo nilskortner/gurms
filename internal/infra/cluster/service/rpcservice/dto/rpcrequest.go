@@ -10,10 +10,10 @@ type RpcRequestWrap interface {
 	IsAsync() bool
 }
 
-type RpcRequest[T comparable] interface {
+type RpcRequest interface {
 	IsAsync() bool
-	CallAsync() T
-	Call() T
+	CallAsync() any
+	Call() any
 	NodeTypeToRequest() NodeTypeToHandleRpc
 	Name() string
 	Init(connection *connectionservice.GurmsConnection, fromNodeId string)

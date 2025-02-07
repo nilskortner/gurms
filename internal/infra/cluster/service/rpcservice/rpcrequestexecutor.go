@@ -5,18 +5,18 @@ import (
 	"gurms/internal/infra/cluster/service/rpcservice/dto"
 )
 
-func RunRpcRequest[T comparable](
-	rpcRequest dto.RpcRequest[T],
+func RunRpcRequest(
+	rpcRequest dto.RpcRequest,
 	connection *connectionservice.GurmsConnection,
 	fromNodeId string,
-) T {
+) chan any {
 	rpcRequest.Init(connection, fromNodeId)
-	var result T
+	var result chan any
 
 	if rpcRequest.IsAsync() {
-		result = rpcRequest.CallAsync()
+		result <- rpcRequest.CallAsync()
 	} else {
-		result = rpcRequest.Call()
+		result <- rpcRequest.Call()
 	}
 	return result
 

@@ -33,12 +33,11 @@ func NewOpeningHandshakeRequest[T comparable](nodeId string, node injection.Node
 func (o *OpeningHandshakeRequest[T]) IsAsync() bool {
 	return false
 }
-func (o *OpeningHandshakeRequest[T]) CallAsync() T {
-	var zero T
-	return zero
+func (o *OpeningHandshakeRequest[T]) CallAsync() any {
+	return nil
 }
-func (o *OpeningHandshakeRequest[T]) Call() T {
-	return o.node.OpeningHandshakeRequestCall(o.Connection).(T)
+func (o *OpeningHandshakeRequest[T]) Call() any {
+	return o.node.OpeningHandshakeRequestCall(o.Connection)
 }
 func (o *OpeningHandshakeRequest[T]) NodeTypeToRequest() dto.NodeTypeToHandleRpc {
 	return dto.BOTH

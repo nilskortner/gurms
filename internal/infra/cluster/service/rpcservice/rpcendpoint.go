@@ -22,6 +22,8 @@ const (
 )
 
 var initSize int = int(EXPECTED_MAX_QPS * EXPECTED_AVERAGE_RTT * (INITAL_CAPACITY_PERCENTAGE / 100.0))
+
+// chan can have error value inside
 var pendingRequestMap *nonblockingmap.Map[int64, chan any] = nonblockingmap.NewSized[int64, chan any](uintptr(initSize))
 
 type RpcEndpoint struct {
@@ -36,8 +38,9 @@ func NewRpcEndpoint(nodeId string, connection *connectionservice.GurmsConnection
 	}
 }
 
-func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T]) (chan any, error) {
+func SendRequest(endpoint *RpcEndpoint, request dto.RpcRequest) (chan any, error) {
 	conn := endpoint.Connection.Connection
+	// TODO: wrong conn == nil
 	if conn == nil {
 		err := fmt.Errorf("connection already closed")
 		return nil, err
@@ -54,14 +57,12 @@ func SendRequest[T comparable](endpoint *RpcEndpoint, request dto.RpcRequest[T])
 		buffer, err := channel.EncodeRequest(request)
 		if err != nil {
 			buffer = nil
-			var zero T
-			resolveRequest(requestId, zero, err)
+			endpoint.resolveRequest(requestId, nil, err)
 			return nil, err
 		}
 		_, err = conn.Write(buffer.Bytes())
 		if err != nil {
-			var zero T
-			resolveRequest(requestId, zero, err)
+			endpoint.resolveRequest(requestId, nil, err)
 			return nil, err
 		}
 		break
@@ -85,22 +86,12 @@ func generateId() int64 {
 	return id
 }
 
-// TODO: add all response types
-func UnwrapResponse(wrap dto.RpcResponseWrap) {
-	// Type switch
-	switch value := wrap.(type) {
-	case *dto.RpcResponse:
-		HandleResponse(value)
-	default:
-		RPCENDPOINTLOGGER.ErrorWithArgs("Couldnt resolve Instantiation of Response[Type?]: ", wrap)
-	}
+func (e *RpcEndpoint) HandleResponse(response *dto.RpcResponse) {
+	e.resolveRequest(response.RequestId, response.Result, response.RpcError)
 }
 
-func HandleResponse(response *dto.RpcResponse) {
-	resolveRequest(response.RequestId, response.Result, response.RpcError)
-}
-
-func resolveRequest(requestId int64, response any, err error) {
+// if err != nil puts error in sink
+func (e *RpcEndpoint) resolveRequest(requestId int64, response any, err error) {
 	sink, ok := pendingRequestMap.Get(requestId)
 	if !ok {
 		message := fmt.Sprint("Could not find a pending request with the ID %s for the response: %s",

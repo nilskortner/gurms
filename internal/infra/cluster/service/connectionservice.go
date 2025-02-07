@@ -162,12 +162,14 @@ func (c *ConnectionService) connectMemberUntilSucceedOrRemoved0(member *configdi
 		nodeId, member.MemberHost, member.MemberPort)
 	CONNECTIONLOGGER.InfoWithArgs(message)
 	handshakeRequest := request.NewOpeningHandshakeRequest[byte](localNodeId, c.node)
-	code, err := RequestResponseWithGurmsConnection[byte](c.rpcService, nodeId, handshakeRequest, -1, connection)
+	channel, err := RequestResponseWithGurmsConnection(c.rpcService, nodeId, handshakeRequest, -1, connection)
 	if err != nil {
 		connectMemberUntilSucceedOrRemoved0LogError(nodeId, member.MemberHost, member.MemberPort, connection, err)
 		return
 	}
-	if code == request.RESPONSE_CODE_SUCCESS {
+	value := <-channel
+	code, ok := value.(byte)
+	if ok && code == request.RESPONSE_CODE_SUCCESS {
 		c.OnMemberConnectionHandshakeCompleted(member, connection, true)
 	} else {
 		err = fmt.Errorf("failure code: " + string(code))
@@ -262,9 +264,20 @@ func (c *ConnectionService) sendKeepAlive(id string, connection *connectionservi
 func (c *ConnectionService) HandleHandshakeRequest(connection *connectionservice.GurmsConnection, nodeId string) byte {
 	member := c.discoveryService.GetMember(nodeId)
 	if member == nil {
-		return request.
+		return request.RESPONSE_CODE_UNKNOWN_MEMBER
 	}
-	return 0
+	existingConnection, ok := c.nodeIdToConnection.Get(nodeId)
+	if ok {
+		if !existingConnection.IsClosed.Load() {
+			return request.RESPONSE_CODE_CONNECTION_ALREADY_EXISTS
+		}
+	} else if connection.IsClosed.Load() {
+		c.onConnectionClosed(connection, nil)
+		return request.RESPONSE_CODE_CONNECTION_CLOSED
+	}
+	connection.NodeId = nodeId
+	c.OnMemberConnectionHandshakeCompleted(member, connection, false)
+	return request.RESPONSE_CODE_SUCCESS
 }
 
 func disconnectConnection(connection *connectionservice.GurmsConnection) {
