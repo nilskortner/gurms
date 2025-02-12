@@ -2,8 +2,15 @@ package mocknode
 
 type MockNodeProperties struct {
 	// API
-	adminApi *AdminApiProperties `bson:",inline"`
+	adminApi *AdminApiProperties `bson:"adminApiProperties"`
 
 	// Data Store
-	mongo *MongoGroupProperties `bson:",inline"`
+	mongo *MongoGroupProperties `bson:"mongoGroupProperties"`
+}
+
+func NewMockNodeProperties() *MockNodeProperties {
+	return &MockNodeProperties{
+		adminApi: NewAdminApiProperties(),
+		mongo:    NewMongoGroupProperties(),
+	}
 }

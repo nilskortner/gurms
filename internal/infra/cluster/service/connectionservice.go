@@ -25,7 +25,8 @@ import (
 var CONNECTIONLOGGER logger.Logger = factory.GetLogger("ConnectionService")
 
 type ConnectionService struct {
-	node injection.Node
+	node     injection.Node
+	shutdown injection.ShutDown
 
 	clientTls               *common.TlsProperties
 	keepaliveIntervalMillis int64
@@ -51,6 +52,7 @@ func NewConnectionService(shutdown injection.ShutDown, connectionProperties *con
 
 	service := &ConnectionService{
 		node:                              node,
+		shutdown:                          shutdown,
 		memberConnectionListenerSuppliers: make([]func() connectionservice.MemberConnectionListener, 0, 4),
 		serverProperties:                  connectionProperties.Server,
 		clientTls:                         clientProperties.Tls,
@@ -60,7 +62,7 @@ func NewConnectionService(shutdown injection.ShutDown, connectionProperties *con
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	shutdown.AddClosingContext(cancel)
+	shutdown.AddShutdownFunction(cancel)
 	service.startSendKeepAliveToConnectionsForeverRoutine(ctx)
 
 	service.server = service.setupServer()
@@ -104,6 +106,7 @@ func (c *ConnectionService) setupServer() *connectionservice.ConnectionServer {
 	}
 
 	server := connectionservice.NewConnectionServer(
+		c.shutdown,
 		c.serverProperties.Host,
 		c.serverProperties.Port,
 		c.serverProperties.PortAutoIncrement,
@@ -468,4 +471,8 @@ func getMemberIdAndAddress(nodeId string, member *configdiscovery.Member) string
 		member.MemberHost +
 		", port=" +
 		string(member.MemberPort) + "}"
+}
+
+func (c *ConnectionService) GetServerPort() int {
+	return c.server.GetPort()
 }

@@ -1,27 +1,50 @@
 package gateway
 
+import (
+	"gurms/internal/infra/property/env/gateway/network"
+	"gurms/internal/infra/property/env/gateway/redis"
+	"gurms/internal/infra/property/env/gateway/session"
+)
+
 type GatewayProperties struct {
 	// API
-	adminApi            *AdminApiProperties            `bson:",inline"`
-	clientApi           *ClientApiProperties           `bson:",inline"`
-	notificationLogging *NotificationLoggingProperties `bson:",inline"`
+	adminApi            *AdminApiProperties            `bson:"adminApiProperties"`
+	clientApi           *ClientApiProperties           `bson:"clientApiProperties"`
+	notificationLogging *NotificationLoggingProperties `bson:"notificationLoggingProperties"`
 
 	// Business Behavior
-	session           *SessionProperties           `bson:",inline"`
-	simultaneousLogin *SimultaneousLoginProperties `bson:",inline"`
+	session           *session.SessionProperties   `bson:"sessionProperties"`
+	simultaneousLogin *SimultaneousLoginProperties `bson:"simultaneousLoginProperties"`
 
 	// Cluster
-	serviceDiscovery *DiscoveryProperties `bson:",inline"`
+	serviceDiscovery *DiscoveryProperties `bson:"discoveryProperties"`
 
 	// Data Store
-	mongo *MongoGroupProperties `bson:",inline"`
-	redis *TurmsRedisProperties `bson:",inline"`
+	mongo *MongoGroupProperties       `bson:"mongoGroupProperties"`
+	redis *redis.GurmsRedisProperties `bson:"gurmsRedisProperties"`
 
 	// Faking
-	fake *FakeProperties `bson:",inline"`
+	fake *FakeProperties `bson:"fakeProperties"`
 
 	// Network Access Layer
-	udp       *UdpProperties       `bson:",inline"`
-	tcp       *TcpProperties       `bson:",inline"`
-	websocket *WebSocketProperties `bson:",inline"`
+	udp       *network.UdpProperties       `bson:"udpProperties"`
+	tcp       *network.TcpProperties       `bson:"tcpProperties"`
+	websocket *network.WebSocketProperties `bson:"webSocketProperties"`
+}
+
+func NewGatewayProperties() *GatewayProperties {
+	return &GatewayProperties{
+		adminApi:            NewAdminApiProperties(),
+		clientApi:           NewClientApiProperties(),
+		notificationLogging: NewNotificationLoggingProperties(),
+		session:             session.NewSessionProperties(),
+		simultaneousLogin:   NewSimultaneousLoginProperties(),
+		serviceDiscovery:    NewDiscoveryProperties(),
+		mongo:               NewMongoGroupProperties(),
+		redis:               redis.NewGurmsRedisProperties(),
+		fake:                NewFakeProperties(),
+		udp:                 network.NewUdpProperties(),
+		tcp:                 network.NewTcpProperties(),
+		websocket:           network.NewWebSocketProperties(),
+	}
 }

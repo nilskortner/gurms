@@ -324,7 +324,7 @@ func (d *DiscoveryService) listenLeaderChangeEvent() {
 			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection:", err)
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		d.shutdown.AddClosingContext(cancel)
+		d.shutdown.AddShutdownFunction(cancel)
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {
@@ -400,7 +400,7 @@ func (d *DiscoveryService) listenMembersChangeEvent() {
 			DISCOVERYSERVICELOGGER.FatalWithError("Error subscribing to change stream of collection member:", err)
 		}
 		ctx, cancel := context.WithCancel(context.Background())
-		d.shutdown.AddClosingContext(cancel)
+		d.shutdown.AddShutdownFunction(cancel)
 		for stream.Next(ctx) {
 			var streamEvent bson.M
 			if err := stream.Decode(&streamEvent); err != nil {

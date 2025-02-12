@@ -1,5 +1,7 @@
 package entity
 
+import "go.mongodb.org/mongo-driver/v2/bson"
+
 type MongoEntityWrap interface {
 	GetShardKeyBson()
 }
@@ -7,7 +9,7 @@ type MongoEntityWrap interface {
 type MongoEntity[T comparable] struct {
 	constructor    func() T
 	collectionName string
-	jsonSchema     BsonDocument
+	jsonSchema     bson.M
 	//shard key zone index
 	shardKey        *ShardKey
 	zone            *Zone

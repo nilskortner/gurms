@@ -1,7 +1,7 @@
 package aiserving
 
 type AiServingProperties struct {
-	adminApi *AdminApiProperties   `bson:",inline"`
-	mongo    *MongoGroupProperties `bson:",inline"`
-	ocr      *OcrProperties        `bson:",inline"`
+	adminApi *AdminApiProperties   `bson:"adminApiProperties"`
+	mongo    *MongoGroupProperties `bson:"mongoGroupProperties"`
+	ocr      *OcrProperties        `bson:"ocrProperties"`
 }

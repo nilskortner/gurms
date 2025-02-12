@@ -70,7 +70,7 @@ func (app *BaseApplication) setupLogging() {
 
 func (app *BaseApplication) initEnv() {
 	app.shutDownManager = application.NewShutDownManager()
-	properties = property.InitGurmsProperties()
+	properties = property.NewGurmsProperties()
 
 	var nodeId string = node.InitNodeId(viper.GetString(constants.GURMS_CLUSTER_NODE_ID))
 	factory.Loggerfactory(false, nodeId, app.nodeType, properties.Logging)

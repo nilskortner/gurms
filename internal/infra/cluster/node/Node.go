@@ -2,6 +2,7 @@ package node
 
 import (
 	"gurms/internal/infra/address"
+	"gurms/internal/infra/application"
 	"gurms/internal/infra/cluster/node/nodetype"
 	"gurms/internal/infra/cluster/service"
 	"gurms/internal/infra/cluster/service/connectionservice"
@@ -44,6 +45,7 @@ type Node struct {
 
 func NewNode(
 	nType nodetype.NodeType,
+	shutDown *application.ShutDownManager,
 	propertiesManager *property.GurmsPropertiesManager,
 	baseServiceAddresssManager address.ServiceAddressManager,
 	healthCheckManager *healthcheck.HealthCheckManager,
@@ -94,15 +96,16 @@ func NewNode(
 	}
 
 	node.CodecService = service.NewCodecService()
-	node.ConnectionService = service.NewConnectionService(connectionProperties, node)
+	node.ConnectionService = service.NewConnectionService(shutDown, connectionProperties, node)
 	node.RpcService = service.NewRpcService(nodeType, rpcProperties)
 	node.SharedConfigService = service.NewSharedConfigService(sharedConfigProperties.Mongo)
 	node.DiscoveryService = service.NewDiscoveryService(
+		shutDown,
 		clusterId, nodeId, zone, name, nodeType, nodeVersion,
 		nodeType == nodetype.SERVICE && nodeProperties.LeaderEligible,
 		nodeProperties.Priority, nodeProperties.ActiveByDefault,
-		healthCheckManager.isHealthy(),
-		node.ConnectionService,
+		healthCheckManager.IsHealthy(),
+		node.ConnectionService.GetServerPort(),
 		discoveryProperties,
 		baseServiceAddresssManager,
 		node.SharedConfigService,

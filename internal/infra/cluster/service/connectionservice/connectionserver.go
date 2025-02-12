@@ -28,7 +28,12 @@ type ConnectionServer struct {
 	cancel             context.CancelFunc
 }
 
+type ShutDown interface {
+	AddShutdownFunction(shutdown func())
+}
+
 func NewConnectionServer(
+	shutDown ShutDown,
 	host string,
 	port int,
 	portAutoIncrement bool,
@@ -37,7 +42,7 @@ func NewConnectionServer(
 	connection func(conn net.Conn),
 ) *ConnectionServer {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &ConnectionServer{
+	server := &ConnectionServer{
 		port:               -1,
 		host:               host,
 		proposedPort:       port,
@@ -48,6 +53,8 @@ func NewConnectionServer(
 		ctx:                ctx,
 		cancel:             cancel,
 	}
+	shutDown.AddShutdownFunction(server.Shutdown)
+	return server
 }
 
 func (c *ConnectionServer) BlockUntilConnect() {
@@ -104,4 +111,8 @@ func (c *ConnectionServer) BlockUntilConnect() {
 func (c *ConnectionServer) Shutdown() {
 	c.cancel()
 	c.listener.Close()
+}
+
+func (c *ConnectionServer) GetPort() int {
+	return c.port
 }

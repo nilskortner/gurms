@@ -13,6 +13,13 @@ type ShutDownManager struct {
 	closeRoutineChannels []chan struct{}
 }
 
+func NewShutDownManager() *ShutDownManager {
+	return &ShutDownManager{
+		isClosing:            make([]func(), 0),
+		closeRoutineChannels: make([]chan struct{}, 0),
+	}
+}
+
 func (s *ShutDownManager) ShutdownApp() {
 	s.StartCloseRoutines()
 	s.StartCloseRessources()
@@ -38,4 +45,11 @@ func (s *ShutDownManager) closeRoutines() {
 // TODO:
 func (s *ShutDownManager) StartCloseRessources() {
 
+}
+
+func (s *ShutDownManager) AddShutdownChannel(shutdown chan struct{}) {
+	s.closeRoutineChannels = append(s.closeRoutineChannels, shutdown)
+}
+func (s *ShutDownManager) AddShutdownFunction(shutdown func()) {
+	s.isClosing = append(s.isClosing, shutdown)
 }

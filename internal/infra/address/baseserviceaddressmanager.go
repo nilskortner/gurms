@@ -2,6 +2,7 @@ package address
 
 import (
 	"context"
+	"fmt"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property"
@@ -161,4 +162,26 @@ func (b *BaseServiceAddressManager) notifyOnNodeAddressInfoChangedListeners(
 	for _, listener := range b.OnNodeAddressInfoChangedListeners {
 		listener(addresses)
 	}
+}
+
+func (b *BaseServiceAddressManager) AddOnNodeAddressInfoChangedListener(func(*NodeAddressInfo)) {
+
+}
+
+func (b *BaseServiceAddressManager) GetMemberHost() string
+func (b *BaseServiceAddressManager) GetAdminApiAddress() string
+func (b *BaseServiceAddressManager) GetWsAddress() string
+func (b *BaseServiceAddressManager) GetTcpAddress() string
+func (b *BaseServiceAddressManager) GetUdpAddress() string
+func (b *BaseServiceAddressManager) GetAdminAddressProperties(properties *property.GurmsProperties) *common.AddressProperties
+func (b *BaseServiceAddressManager) UpdateAdminApiAddresses(adminHttpProperties *aiserving.AdminHttpProperties,
+	newAdminApiAddressProperties *common.AddressProperties) error {
+	return fmt.Errorf("")
+}
+func (b *BaseServiceAddressManager) UpdateCustomAddresses(adminHttpProperties *aiserving.AdminHttpProperties,
+	properties *property.GurmsProperties) (bool, error) {
+	return false, fmt.Errorf("")
+}
+func (b *BaseServiceAddressManager) UpdateMemberHostIfChanged(newProperties *property.GurmsProperties) (bool, error) {
+	return false, fmt.Errorf("")
 }
