@@ -131,7 +131,7 @@ func (m *MemoryHealthChecker) tryLog(isHealthy bool) {
 		m.minMemoryWarningIntervalMillis < (now.UnixMilli()-m.lastHeapMemoryWarningTimestamp) {
 		m.lastHeapMemoryWarningTimestamp = int64(now.UnixMilli())
 		MEMORYHEALTHCHECKERLOGGER.Warn(fmt.Sprintf(
-			"the used heap mempory has exceeded the warning threshold: %d/%d/%d/%d",
+			"the used heap mempory has exceeded the warning threshold: %d/%d/%f/%d",
 			m.usedHeapMemory/MB, m.maxHeapMemory/MB, usedMemoryPercentage,
 			m.heapMemoryWarningThresholdPercentage))
 	}

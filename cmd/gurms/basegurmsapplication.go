@@ -7,11 +7,13 @@ import (
 	"runtime"
 	"time"
 
+	"gurms/internal/infra/address"
 	"gurms/internal/infra/application"
 	"gurms/internal/infra/cluster"
 	"gurms/internal/infra/cluster/node"
 	"gurms/internal/infra/cluster/node/nodetype"
 	_ "gurms/internal/infra/collection"
+	"gurms/internal/infra/healthcheck"
 	_ "gurms/internal/infra/lang"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/property"
@@ -24,14 +26,17 @@ import (
 type BaseApplication struct {
 	nodeType        nodetype.NodeType
 	shutDownManager *application.ShutDownManager
+	addressManager  address.ServiceAddressManager
 }
 
 var logger zerolog.Logger
 var properties *property.GurmsProperties
 
-func NewBaseApplication(nodeType nodetype.NodeType) *BaseApplication {
+func NewBaseApplication(nodeType nodetype.NodeType,
+	addressManager address.ServiceAddressManager) *BaseApplication {
 	return &BaseApplication{
-		nodeType: nodeType,
+		nodeType:       nodeType,
+		addressManager: addressManager,
 	}
 }
 
@@ -76,9 +81,12 @@ func (app *BaseApplication) initEnv() {
 	factory.Loggerfactory(false, nodeId, app.nodeType, properties.Logging)
 
 	// iMongoCollectionInitializer
-	propertiesmanager := property.NewGurmsPropertiesManager(properties)
-	node = cluster.NewNode(app.nodeType, propertiesmanager)
-	propertiesmanager.SetNode(node)
+	propertiesManager := property.NewGurmsPropertiesManager(nil, properties)
+	// TODO: check if lazy init and injections work properly
+	healthcheckManager := healthcheck.NewHealthCheckManager(app.shutDownManager, nil, propertiesManager)
+	node := cluster.NewNode(app.nodeType, app.shutDownManager,
+		propertiesManager, app.addressManager, healthcheckManager)
+	propertiesManager.SetNode(node)
 	//metricsconfig
 
 }

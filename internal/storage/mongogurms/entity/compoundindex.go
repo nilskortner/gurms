@@ -1,6 +1,6 @@
 package entity
 
 type CompoundIndex struct {
-	index *annotation.CompoundIndex
-	model *IndexModel
+	//index *annotation.CompoundIndex
+	//model *IndexModel
 }

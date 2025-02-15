@@ -6,8 +6,8 @@ import (
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
 	"gurms/internal/infra/property"
-	"gurms/internal/infra/property/env/aiserving"
 	"gurms/internal/infra/property/env/common"
+	"gurms/internal/infra/property/env/common/adminapi"
 	"sync"
 	"time"
 )
@@ -25,7 +25,7 @@ type BaseServiceAddressManager struct {
 }
 
 func newBaseServiceAddressManager(
-	adminHttpProperties *aiserving.AdminHttpProperties,
+	adminHttpProperties *adminapi.AdminHttpProperties,
 	ipDetector *IpDetector,
 	propertiesManager *property.GurmsPropertiesManager,
 	serviceAddressManager ServiceAddressManager,
@@ -168,17 +168,29 @@ func (b *BaseServiceAddressManager) AddOnNodeAddressInfoChangedListener(func(*No
 
 }
 
-func (b *BaseServiceAddressManager) GetMemberHost() string
-func (b *BaseServiceAddressManager) GetAdminApiAddress() string
-func (b *BaseServiceAddressManager) GetWsAddress() string
-func (b *BaseServiceAddressManager) GetTcpAddress() string
-func (b *BaseServiceAddressManager) GetUdpAddress() string
-func (b *BaseServiceAddressManager) GetAdminAddressProperties(properties *property.GurmsProperties) *common.AddressProperties
-func (b *BaseServiceAddressManager) UpdateAdminApiAddresses(adminHttpProperties *aiserving.AdminHttpProperties,
+func (b *BaseServiceAddressManager) GetMemberHost() string {
+	return ""
+}
+func (b *BaseServiceAddressManager) GetAdminApiAddress() string {
+	return ""
+}
+func (b *BaseServiceAddressManager) GetWsAddress() string {
+	return ""
+}
+func (b *BaseServiceAddressManager) GetTcpAddress() string {
+	return ""
+}
+func (b *BaseServiceAddressManager) GetUdpAddress() string {
+	return ""
+}
+func (b *BaseServiceAddressManager) GetAdminAddressProperties(properties *property.GurmsProperties) *common.AddressProperties {
+	return &common.AddressProperties{}
+}
+func (b *BaseServiceAddressManager) UpdateAdminApiAddresses(adminHttpProperties *adminapi.AdminHttpProperties,
 	newAdminApiAddressProperties *common.AddressProperties) error {
 	return fmt.Errorf("")
 }
-func (b *BaseServiceAddressManager) UpdateCustomAddresses(adminHttpProperties *aiserving.AdminHttpProperties,
+func (b *BaseServiceAddressManager) UpdateCustomAddresses(adminHttpProperties *adminapi.AdminHttpProperties,
 	properties *property.GurmsProperties) (bool, error) {
 	return false, fmt.Errorf("")
 }

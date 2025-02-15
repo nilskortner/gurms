@@ -69,14 +69,14 @@ func (c *CpuHealthChecker) UpdateHealthStatus() {
 	}
 
 	// log
-	str := fmt.Sprintf("CPU load is: %d", cpuLoad)
+	str := fmt.Sprintf("CPU load is: %f", cpuLoad)
 	CPUHEALTHMANAGERLOGGER.Debug(str)
 	if wasCpuHealthy != c.isCpuHealthy {
 		if c.isCpuHealthy {
-			str = fmt.Sprintf("the CPU has become healthy. the current CPU load is: %d", cpuLoad)
+			str = fmt.Sprintf("the CPU has become healthy. the current CPU load is: %f", cpuLoad)
 			CPUHEALTHMANAGERLOGGER.InfoWithArgs(str)
 		} else {
-			str = fmt.Sprintf("the CPU has become unhealthy. the current CPU load is: %d", cpuLoad)
+			str = fmt.Sprintf("the CPU has become unhealthy. the current CPU load is: %f", cpuLoad)
 			CPUHEALTHMANAGERLOGGER.InfoWithArgs(str)
 		}
 	}

@@ -1,7 +1,6 @@
 package healthcheck
 
 import (
-	"context"
 	"fmt"
 	"gurms/internal/infra/logging/core/factory"
 	"gurms/internal/infra/logging/core/logger"
@@ -25,7 +24,7 @@ type HealthCheckManager struct {
 }
 
 type ShutDown interface {
-	AddClosingContext(ctxClose context.CancelFunc)
+	AddShutdownFunction(ctxClose func())
 	AddShutdownChannel(shutdown chan struct{})
 }
 

@@ -12,24 +12,23 @@ var DEFAULT_PROPERTIES_JSON_NODE = ""
 
 type Node interface {
 	Start()
-	InitNodeId(id string) string
 }
 
 type GurmsPropertiesManager struct {
 	LocalPropertiesChangeListeners []func(properties *GurmsProperties)
 	LastestConfigFilePath          string
-	Node                           *Node
+	Node                           Node
 	LocalGurmsProperties           *GurmsProperties
 }
 
-func NewGurmsPropertiesManager(node *Node, localGurmsProperties *GurmsProperties) *GurmsPropertiesManager {
+func NewGurmsPropertiesManager(node Node, localGurmsProperties *GurmsProperties) *GurmsPropertiesManager {
 	return &GurmsPropertiesManager{
 		Node:                 node,
 		LocalGurmsProperties: localGurmsProperties,
 	}
 }
 
-func (g *GurmsPropertiesManager) SetNode(node *Node) {
+func (g *GurmsPropertiesManager) SetNode(node Node) {
 	g.Node = node
 }
 

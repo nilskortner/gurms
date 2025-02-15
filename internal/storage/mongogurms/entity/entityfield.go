@@ -6,6 +6,6 @@ type EntityField struct {
 	name           string
 	isIdField      bool
 	ctorParanIndex int
-	varAccessor    *VarAccessor
-	isEnumNumber   bool
+	//varAccessor    *VarAccessor
+	isEnumNumber bool
 }

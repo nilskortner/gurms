@@ -13,7 +13,7 @@ func NewServerStatusManager(
 	node Node,
 	healthCheckManager *HealthCheckManager) *ServerStatusManager {
 	ctx, cancel := context.WithCancel(context.Background())
-	shutdown.AddClosingContext(cancel)
+	shutdown.AddShutdownFunction(cancel)
 	return &ServerStatusManager{
 		ctx:                ctx,
 		node:               node,

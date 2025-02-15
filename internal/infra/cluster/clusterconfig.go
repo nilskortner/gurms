@@ -13,7 +13,7 @@ func NewNode(
 	nodeType nodetype.NodeType,
 	shutDown *application.ShutDownManager,
 	propertiesManager *property.GurmsPropertiesManager,
-	serviceAddressManager *address.BaseServiceAddressManager,
+	serviceAddressManager address.ServiceAddressManager,
 	healthCheckManager *healthcheck.HealthCheckManager) *node.Node {
 	node := node.NewNode(
 		nodeType,
