@@ -2,44 +2,60 @@ package netutil
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"gurms/internal/infra/property/env/common"
+	"os"
 )
 
-func CreateTlsConfig(tlsProperties *common.TlsProperties, forServer bool) *tls.Config {
+func CreateTlsConfig(tlsProperties *common.TlsProperties, forServer bool) (*tls.Config, error) {
 	if !tlsProperties.Enabled {
-		return nil
+		return nil, nil
 	}
 	var tlsConfig *tls.Config
+	var err error
 	if forServer {
-		tlsConfig = getClientTlsConfig()
+		tlsConfig, err = createServerTlsConfig(tlsProperties)
 	} else {
-		tlsConfig = createServerTlsConfig(tlsProperties)
+		tlsConfig, err = createClientTlsConfig(tlsProperties)
 	}
-	return tlsConfig
+	return tlsConfig, err
 }
 
-func getClientTlsConfig() *tls.Config {
-	trustManager
-	if tls
+// TODO: make longlived 10year CA and shortterm 1year CAs that renew on expiry
+func createServerTlsConfig(tlsProperties *common.TlsProperties) (*tls.Config, error) {
+	cert, err := tlsCertificate("server.crt", "server.key")
+	if err != nil {
+		return &tls.Config{}, err
+	}
+	clientCAs, err := tlsCA("ca.pem")
+	if err != nil {
+		return &tls.Config{}, err
+	}
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    clientCAs,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   tls.VersionTLS13,
+		MaxVersion:   tls.VersionTLS13,
+	}
+	return config, nil
 }
 
-func createServerTlsConfig(tlsProperties *common.TlsProperties) *tls.Config {
-	cert, err := TlsCertificate()
-	config := &tls.Config{}
-	trustManager(getTrustManagerFactory())
-	if tlsProperties.EnabledProtocols != nil {
-		config.prot
+func createClientTlsConfig(tlsProperties *common.TlsProperties) (*tls.Config, error) {
+	rootCAs, err := tlsCA("ca.pem")
+	if err != nil {
+		return &tls.Config{}, err
 	}
-	if tlsProperties.ClientAuth != nil {
-		config.ClientAuth = tlsProperties.ClientAuth
+	config := &tls.Config{
+		RootCAs:    rootCAs,
+		MinVersion: tls.VersionTLS13,
+		MaxVersion: tls.VersionTLS13,
 	}
-
-
-	return config
+	return config, nil
 }
 
-func TlsCertificate(certPath, keyPath string) (tls.Certificate, error) {
+func tlsCertificate(certPath, keyPath string) (tls.Certificate, error) {
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("failed to load keystore: %w", err)
@@ -47,14 +63,13 @@ func TlsCertificate(certPath, keyPath string) (tls.Certificate, error) {
 	return cert, nil
 }
 
-// func TlsCA(caPath string) (*x509.CertPool, error) {
-// 	certPool := x509.NewCertPool()
-// 	caCert, err := ioutil.ReadFile(caPath)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to load truststore: %w", err)
-// 	}
-// 	if !certPool.AppendCertsFromPEM(caCert) {
-// 		return nil, fmt.Errorf("failed to append CA certificates to truststore")
-// 	}
-// 	return certPool, nil
-// }
+func tlsCA(caPath string) (*x509.CertPool, error) {
+	clientCAs := x509.NewCertPool()
+	caCert, err := os.ReadFile(caPath)
+	if err != nil {
+		return clientCAs, err
+	}
+	clientCAs.AppendCertsFromPEM(caCert)
+
+	return clientCAs, nil
+}
