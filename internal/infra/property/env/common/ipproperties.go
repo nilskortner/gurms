@@ -1,9 +1,9 @@
 package common
 
 type IpProperties struct {
-	publicIpDetectorAddresses       []string
-	cachedPrivateIpExpireAfterMilis int
-	cachedPublicIpExpireAfterMillis int
+	PublicIpDetectorAddresses       []string
+	CachedPrivateIpExpireAfterMilis int
+	CachedPublicIpExpireAfterMillis int
 }
 
 func NewIpProperties() *IpProperties {
@@ -14,8 +14,8 @@ func NewIpProperties() *IpProperties {
 	list[3] = "https://myip.dnsomatic.com"
 
 	return &IpProperties{
-		publicIpDetectorAddresses:       list,
-		cachedPrivateIpExpireAfterMilis: 60 * 1000,
-		cachedPublicIpExpireAfterMillis: 60 * 1000,
+		PublicIpDetectorAddresses:       list,
+		CachedPrivateIpExpireAfterMilis: 60 * 1000,
+		CachedPublicIpExpireAfterMillis: 60 * 1000,
 	}
 }

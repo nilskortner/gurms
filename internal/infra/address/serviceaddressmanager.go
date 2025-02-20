@@ -6,6 +6,7 @@ import (
 	"gurms/internal/infra/property/env/common/adminapi"
 )
 
+// TODO: implement in managers
 type ServiceAddressManager interface {
 	GetMemberHost() string
 	GetAdminApiAddress() string
