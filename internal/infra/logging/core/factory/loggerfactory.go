@@ -32,7 +32,7 @@ var initialized bool
 
 var ALL_APPENDERS = copyonwriteslice.NewCopyOnWriteSlice[appender.Appender]()
 var DEFAULT_APPENDERS = make([]appender.Appender, 0, 2)
-var Queue *mpscunboundedarrayqueue.MpscUnboundedArrayQueue[logrecord.LogRecord]
+var Queue = mpscunboundedarrayqueue.NewMpscUnboundedQueue[logrecord.LogRecord](1024)
 var UNINITIALIZED_LOGGERS linkedlist.LinkedList
 
 var homeDir string
@@ -65,9 +65,6 @@ func initialize(
 	nodeId string,
 	nodeType nodetype.NodeType,
 	properties *logging.LoggingProperties) {
-	if initialized {
-		return
-	}
 	switch nodeType {
 	case 0:
 		homeDir = system.GetProperty("PROPERTY_NAME_GURMS_AI_SERVING_HOME")

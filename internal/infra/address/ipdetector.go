@@ -1,9 +1,14 @@
 package address
 
 import (
+	"errors"
 	"fmt"
+	"gurms/internal/infra/netutil"
 	"gurms/internal/infra/property"
+	"io"
 	"net"
+	"net/http"
+	"strings"
 	"time"
 )
 
@@ -41,7 +46,7 @@ func (d *IpDetector) queryPrivateIp() (string, error) {
 	localAddress := conn.LocalAddr().(*net.UDPAddr)
 	ip := localAddress.IP.String()
 	if !localAddress.IP.IsPrivate() {
-		return ip, fmt.Errorf("the new IP address (%s) is not a site local IP address")
+		return ip, fmt.Errorf("the new IP address (%s) is not a site local IP address", ip)
 	}
 	d.privateIpLastUpdateDate = time.Now().UnixMilli()
 	d.cachedPrivateIp = ip
@@ -62,5 +67,27 @@ func (d *IpDetector) queryPublicIp() (string, error) {
 		return "", fmt.Errorf(
 			"failed to detect the public IP of the local node because no IP detector address is specified")
 	}
-
+	httpClient := http.Client{}
+	for _, ipDetectorAddress := range ipDetectorAddresses {
+		response, err := httpClient.Get(ipDetectorAddress)
+		if err != nil {
+			continue
+		}
+		if response.StatusCode == http.StatusOK {
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				continue
+			} else {
+				ip := strings.TrimSpace(string(body))
+				if netutil.IsIp(ip) {
+					return ip, nil
+				} else {
+					continue
+				}
+			}
+		} else {
+			continue
+		}
+	}
+	return "", errors.New("failed to detect public IP")
 }

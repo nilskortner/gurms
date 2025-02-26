@@ -6,16 +6,24 @@ import (
 )
 
 type LogRecord struct {
-	logger    any
+	logger    AsyncLogger
 	level     loglevel.LogLevel
 	timestamp int64
 	data      *bytes.Buffer
 }
 
-// logger needs to be of type *AsyncLogger
-//
-// *bytes.Buffer cant be nil
-func NewLogRecord(logger any, level loglevel.LogLevel, timestamp int64, data *bytes.Buffer) LogRecord {
+type AsyncLogger interface {
+	IsTraceEnabled() bool
+	IsDebugEnabled() bool
+	IsInfoEnabled() bool
+	IsWarnEnabled() bool
+	IsErrorEnabled() bool
+	IsFatalEnabled() bool
+}
+
+func NewLogRecord(logger AsyncLogger, level loglevel.LogLevel,
+	timestamp int64, data *bytes.Buffer) LogRecord {
+
 	if data == nil {
 		panic("nil pointer in NewLogRecord")
 	}

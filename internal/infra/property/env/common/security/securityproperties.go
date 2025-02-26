@@ -1,13 +1,13 @@
 package security
 
 type SecurityProperties struct {
-	password  *PasswordProperties
-	blocklist *BlocklistProperties
+	Password  *PasswordProperties
+	Blocklist *BlocklistProperties
 }
 
 func NewSecurityProperties() *SecurityProperties {
 	return &SecurityProperties{
-		password:  NewPasswordProperties(),
-		blocklist: NewBlocklistProperties(),
+		Password:  NewPasswordProperties(),
+		Blocklist: NewBlocklistProperties(),
 	}
 }

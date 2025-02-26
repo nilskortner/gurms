@@ -15,3 +15,11 @@ func NewPasswordProperties() *PasswordProperties {
 		adminPasswordEncodingAlgorithm: constants.BCRYPT,
 	}
 }
+
+func (p *PasswordProperties) GetUserPasswordEncodingAlgorithm() string {
+	return p.userPasswordEncodingAlgorithm
+}
+
+func (p *PasswordProperties) GetAdmingPasswordEncodingAlgorithm() string {
+	return p.adminPasswordEncodingAlgorithm
+}
