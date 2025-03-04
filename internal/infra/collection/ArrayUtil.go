@@ -2,7 +2,7 @@ package collection
 
 import "reflect"
 
-func concat(a, b []byte) []byte {
+func Concat(a, b []byte) []byte {
 	var length = len(a)
 	result := make([]byte, length+len(b))
 	copy(a, result)
@@ -10,7 +10,7 @@ func concat(a, b []byte) []byte {
 	return result
 }
 
-func getSlice(value any) []any {
+func GetSlice(value any) []any {
 	// Check if the input value is already a slice.
 	if outputSlice, ok := value.([]any); ok {
 		return outputSlice
