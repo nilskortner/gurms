@@ -1,11 +1,13 @@
 package mongogurms
 
 import (
+	"context"
 	"fmt"
 	"gurms/internal/infra/cluster/service/config/entity/configdiscovery"
 	"gurms/internal/storage/mongogurms/entity"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/cornelk/hashmap"
 	"go.mongodb.org/mongo-driver/v2/event"
@@ -55,6 +57,12 @@ func NewMongoContext(connectionString string, onServerDescriptionChange func([]e
 		AdminDatabase:  client.Database("admin"),
 		ConfigDatabase: client.Database("config"),
 	}, nil
+}
+
+func (m *MongoContext) destroy(timeoutMillis int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMillis))
+	defer cancel()
+	return m.Client.Disconnect(ctx)
 }
 
 func (m *MongoContext) GetCollection(value any) (*mongo.Collection, error) {
